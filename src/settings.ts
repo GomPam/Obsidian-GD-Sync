@@ -181,8 +181,8 @@ export class GDSyncSettingTab extends PluginSettingTab {
                         .addOption('keepBoth', t('SETTING_CONFLICT_BOTH'))
                         .addOption('merge', t('SETTING_CONFLICT_MERGE'))
                         .setValue(this.plugin.settings.conflictStrategy)
-                        .onChange(async (value: any) => {
-                            this.plugin.settings.conflictStrategy = value;
+                        .onChange(async (value: string) => {
+                            this.plugin.settings.conflictStrategy = value as GDSyncSettings['conflictStrategy'];
                             await this.plugin.saveSettings();
                         });
                 });
