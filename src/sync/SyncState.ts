@@ -26,6 +26,7 @@ export interface SyncIndex {
         path: string;
         oldPath?: string;
         timestamp: number;
+        _retryCount?: number;
     }[];
 }
 
@@ -45,11 +46,11 @@ export class SyncState {
         if (await this.app.vault.adapter.exists(this.indexPath)) {
             const data = await this.app.vault.adapter.read(this.indexPath);
             try {
-                this.index = JSON.parse(data);
+                this.index = JSON.parse(data) as SyncIndex;
                 if (!this.index.files) this.index.files = {};
                 if (!this.index.folders) this.index.folders = {};
-            } catch (e) {
-                console.error("GD Sync: Failed to parse .gd-sync.db", e);
+            } catch (err) {
+                console.error("GD Sync: Failed to parse .gd-sync.db", err);
                 // 파싱 에러시 초기화
                 this.index = { files: {}, folders: {} };
             }
@@ -62,8 +63,8 @@ export class SyncState {
         // ensuring the most recent state is always persisted.
         this._saveQueue = this._saveQueue.then(async () => {
             await this.app.vault.adapter.write(this.indexPath, JSON.stringify(this.index, null, 2));
-        }).catch(e => {
-            console.error("[GD Sync] save() failed:", e);
+        }).catch(err => {
+            console.error("[GD Sync] save() failed:", err);
         });
         await this._saveQueue;
     }
@@ -153,7 +154,7 @@ export class SyncState {
         let retryCount = item._retryCount || 0;
         if (existingIdx !== -1) {
             // Inherit retry count if replacing an old item
-            retryCount = Math.max(retryCount, (this.index.localQueue[existingIdx] as any)?._retryCount || 0);
+            retryCount = Math.max(retryCount, this.index.localQueue[existingIdx]?._retryCount || 0);
             // remove old one
             this.index.localQueue.splice(existingIdx, 1);
         }
@@ -168,7 +169,7 @@ export class SyncState {
             ...item,
             _retryCount: retryCount,
             timestamp: Date.now()
-        } as any);
+        });
     }
 
     getLocalQueue() {
