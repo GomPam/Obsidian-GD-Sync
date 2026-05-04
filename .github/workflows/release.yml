@@ -42,7 +42,7 @@ jobs:
           # npm version triggers the "version" script in package.json
           # which runs version-bump.mjs and stages manifest.json and versions.json
           # We use --tag-version-prefix="" to create tag "1.0.1" instead of "v1.0.1"
-          npm version $NEW_VERSION -m "chore: release %s" --tag-version-prefix=""
+          npm version $NEW_VERSION -m "chore: release %s" --tag-version-prefix="" --allow-same-version
 
           # Push commit and tag directly to main
           git push origin main
