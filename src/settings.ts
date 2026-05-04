@@ -59,9 +59,20 @@ export class GDSyncSettingTab extends PluginSettingTab {
                     .setButtonText(t('SETTING_BTN_DISCONNECT'))
                     .setWarning()
                     .onClick(async () => {
+                        // 1. 모든 설정을 기본값으로 초기화
+                        this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS);
                         this.plugin.refreshToken = '';
                         await this.plugin.saveSettings();
+                        
+                        // 2. 인증 토큰 해제
                         this.plugin.googleOAuthManager.clearTokens();
+                        
+                        // 3. 로컬 동기화 데이터베이스(SyncState) 초기화
+                        await this.plugin.syncManager.state.clearAll();
+                        
+                        // 4. 확장자 필터 캐시 초기화
+                        this.plugin.syncManager.updateCustomExtensionsCache();
+
                         this.display(); // UI 새로고침
                         new Notice(t('SETTING_NOTICE_DISCONNECT'));
                     }));

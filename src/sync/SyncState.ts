@@ -192,6 +192,11 @@ export class SyncState {
         }
     }
 
+    async clearAll() {
+        this.index = { files: {}, folders: {} };
+        await this.save();
+    }
+
     getSyncHistory(): SyncLog[] {
         return this.index.syncHistory || [];
     }
