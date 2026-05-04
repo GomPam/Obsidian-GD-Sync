@@ -542,7 +542,7 @@ export class SyncManager {
 
                 const localFile = this.plugin.app.vault.getAbstractFileByPath(localPath);
                 const localMtime = (localFile instanceof TFile) ? localFile.stat.mtime : 0;
-                const remoteMtime = new Date(file.modifiedTime).getTime();
+                const remoteMtime = file.modifiedTime ? new Date(file.modifiedTime).getTime() : 0;
                 const lastSyncTime = this.state.getFileData(localPath)?.lastSyncTime || 0;
 
                 if (remoteMtime > lastSyncTime + 1000) {

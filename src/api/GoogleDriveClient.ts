@@ -2,6 +2,23 @@ import { Notice, requestUrl } from 'obsidian';
 import { t } from '../lang/helpers';
 import GDSyncPlugin from '../main';
 
+export interface GoogleDriveFile {
+    id: string;
+    name: string;
+    mimeType?: string;
+    modifiedTime?: string;
+    parents?: string[];
+    trashed?: boolean;
+    shared?: boolean;
+}
+
+export interface GoogleDriveChange {
+    fileId: string;
+    removed: boolean;
+    file?: GoogleDriveFile;
+}
+
+
 // 구글 드라이브 API 통신을 전담하는 클래스
 export class GoogleDriveClient {
     constructor(private plugin: GDSyncPlugin) {}
@@ -43,8 +60,9 @@ export class GoogleDriveClient {
             throw new Error(`폴더 검색 실패: ${res.status}`);
         }
 
-        if (res.json.files && res.json.files.length > 0) {
-            return res.json.files[0].id;
+        const json = res.json as { files?: { id: string }[] };
+        if (json.files && json.files.length > 0) {
+            return json.files[0]?.id || null;
         }
         return null;
     }
@@ -70,12 +88,13 @@ export class GoogleDriveClient {
             new Notice(t('NOTICE_ERROR', { msg: `Folder creation failed (HTTP ${res.status})` }));
             throw new Error(`폴더 생성 실패: ${res.status}`);
         }
-        return res.json.id;
+        const json = res.json as { id: string };
+        return json.id;
     }
 
     // 3. 파일 목록조회 (주어진 폴더 하위의 모든 파일, 트리 구조 재귀 탐색)
-    async listAllFilesInTree(rootFolderId: string): Promise<any[]> {
-        let allFiles: any[] = [];
+    async listAllFilesInTree(rootFolderId: string): Promise<GoogleDriveFile[]> {
+        let allFiles: GoogleDriveFile[] = [];
         let foldersToProcess: string[] = [this.validateDriveId(rootFolderId)];
         const headers = await this.getHeaders();
         const processedFolderIds = new Set<string>(); // SEC-M05: Circular loop protection
@@ -93,11 +112,12 @@ export class GoogleDriveClient {
 
                 const res = await requestUrl({ url, method: 'GET', headers });
                 
-                const files = res.json.files || [];
+                const json = res.json as { files?: GoogleDriveFile[], nextPageToken?: string };
+                const files = json.files || [];
                 allFiles = allFiles.concat(files);
                 
                 // 검색된 파일들 중 '폴더'인 것들은 다음 탐색 큐에 추가
-                const subFolders = files.filter((f: any) => f.mimeType === 'application/vnd.google-apps.folder');
+                const subFolders = files.filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
                 for (const sub of subFolders) {
                     if (!processedFolderIds.has(sub.id)) {
                         processedFolderIds.add(sub.id);
@@ -105,7 +125,7 @@ export class GoogleDriveClient {
                     }
                 }
 
-                pageToken = res.json.nextPageToken;
+                pageToken = json.nextPageToken;
             } while (pageToken);
         }
 
@@ -113,8 +133,8 @@ export class GoogleDriveClient {
     }
 
     // 4. 폴더 목록전용 조회 (UI 폴더 픽커용)
-    async listFolders(parentId: string = 'root'): Promise<any[]> {
-        let folders: any[] = [];
+    async listFolders(parentId: string = 'root'): Promise<GoogleDriveFile[]> {
+        let folders: GoogleDriveFile[] = [];
         const headers = await this.getHeaders();
         const safeParent = this.validateDriveId(parentId);
         
@@ -127,10 +147,11 @@ export class GoogleDriveClient {
 
             try {
                 const res = await requestUrl({ url, method: 'GET', headers });
-                folders = folders.concat(res.json.files || []);
-                pageToken = res.json.nextPageToken;
-            } catch (err: any) {
-                throw new Error(`일반 폴더 조회 중 오류 (status: ${err.status}): ${err.message || err.text || err}`);
+                const json = res.json as { files?: GoogleDriveFile[], nextPageToken?: string };
+                folders = folders.concat(json.files || []);
+                pageToken = json.nextPageToken;
+            } catch (err: unknown) {
+                throw new Error(`일반 폴더 조회 중 오류 (status: ${(err as any)?.status}): ${(err as any)?.message || (err as any)?.text || err}`);
             }
         } while (pageToken);
 
@@ -144,9 +165,10 @@ export class GoogleDriveClient {
 
                 try {
                     const res = await requestUrl({ url, method: 'GET', headers });
-                    folders = folders.concat(res.json.files || []);
+                    const json = res.json as { files?: GoogleDriveFile[], nextPageToken?: string };
+                folders = folders.concat(json.files || []);
                     sharedPageToken = res.json.nextPageToken;
-                } catch (err: any) {
+                } catch (err: unknown) {
                     console.error("공유 폴더 조회 오류:", err);
                     break; // 공유 폴더 조회 실패 시 일반 폴더 리스트라도 반환하기 위해 중단만 함
                 }
@@ -168,7 +190,7 @@ export class GoogleDriveClient {
         const close_delim = "\r\n--" + boundary + "--";
         const safeParent = this.validateDriveId(parentId);
 
-        const metadata: any = {
+        const metadata: Record<string, unknown> = {
             name: name,
             mimeType: mimeType,
             parents: [safeParent]
@@ -209,11 +231,12 @@ export class GoogleDriveClient {
             new Notice(t('NOTICE_ERROR', { msg: `Upload failed (HTTP ${res.status})` }));
             throw new Error(`업로드 실패: ${res.status}`);
         }
-        return res.json.id;
+        const json = res.json as { id: string };
+        return json.id;
     }
 
     // 5. 기존 파일 콘텐츠 업데이트 (Multipart OR 단순 패치)
-    async updateFile(fileId: string, content: ArrayBuffer | string, mimeType: string = 'text/markdown'): Promise<any> {
+    async updateFile(fileId: string, content: ArrayBuffer | string, mimeType: string = 'text/markdown'): Promise<GoogleDriveFile> {
         const isBinary = content instanceof ArrayBuffer;
         const safeFileId = this.validateDriveId(fileId);
         
@@ -238,7 +261,7 @@ export class GoogleDriveClient {
             new Notice(t('NOTICE_ERROR', { msg: `Update failed (HTTP ${res.status})` }));
             throw new Error(`파일 업데이트 실패: ${res.status}`);
         }
-        return res.json;
+        return res.json as GoogleDriveFile;
     }
 
     // 6. 파일 다운로드
@@ -283,7 +306,7 @@ export class GoogleDriveClient {
     }
 
     // 8. 파일 메타데이터 업데이트 (이름 변경 및 경로 이동)
-    async updateFileMetadata(fileId: string, newName?: string, addParents?: string[], removeParents?: string[], modifiedTime?: number): Promise<any> {
+    async updateFileMetadata(fileId: string, newName?: string, addParents?: string[], removeParents?: string[], modifiedTime?: number): Promise<GoogleDriveFile> {
         const safeFileId = this.validateDriveId(fileId);
         let url = `https://www.googleapis.com/drive/v3/files/${safeFileId}?fields=id,name,parents`;
         const queryParams = [];
@@ -294,7 +317,7 @@ export class GoogleDriveClient {
             url += `&${queryParams.join('&')}`;
         }
 
-        const body: any = {};
+        const body: Record<string, unknown> = {};
         if (newName) {
             body.name = newName;
         }
@@ -315,11 +338,11 @@ export class GoogleDriveClient {
         if (res.status !== 200) {
             throw new Error(`파일 메타데이터 업데이트 실패: ${res.status}`);
         }
-        return res.json;
+        return res.json as GoogleDriveFile;
     }
 
     // 9. 파일 이름 및 경로 동시 완벽 이동 (기존 부모 모두 제거 후 새 부모 추가)
-    async renameAndMove(fileId: string, newName: string, newParentId: string, modifiedTime?: number): Promise<any> {
+    async renameAndMove(fileId: string, newName: string, newParentId: string, modifiedTime?: number): Promise<GoogleDriveFile> {
         const safeFileId = this.validateDriveId(fileId);
         const fileInfoRes = await requestUrl({
             url: `https://www.googleapis.com/drive/v3/files/${safeFileId}?fields=parents`,
@@ -342,12 +365,13 @@ export class GoogleDriveClient {
             headers: await this.getHeaders()
         });
         if (res.status !== 200) throw new Error("Failed to get startPageToken");
-        return res.json.startPageToken;
+        const json = res.json as { startPageToken: string };
+        return json.startPageToken;
     }
 
     // 변경 사항 목록 가져오기
-    async listChanges(pageToken: string): Promise<{ changes: any[], newStartPageToken: string }> {
-        let allChanges: any[] = [];
+    async listChanges(pageToken: string): Promise<{ changes: GoogleDriveChange[], newStartPageToken: string }> {
+        let allChanges: GoogleDriveChange[] = [];
         let currentToken = pageToken;
         const headers = await this.getHeaders();
 
@@ -357,21 +381,22 @@ export class GoogleDriveClient {
 
             if (res.status !== 200) throw new Error(`Failed to list changes: ${res.status}`);
 
-            allChanges = allChanges.concat(res.json.changes || []);
+            const json = res.json as { changes?: GoogleDriveChange[], nextPageToken?: string, newStartPageToken: string };
+            allChanges = allChanges.concat(json.changes || []);
             
-            if (res.json.nextPageToken) {
-                currentToken = res.json.nextPageToken;
+            if (json.nextPageToken) {
+                currentToken = json.nextPageToken;
             } else {
                 return {
                     changes: allChanges,
-                    newStartPageToken: res.json.newStartPageToken
+                    newStartPageToken: json.newStartPageToken
                 };
             }
         }
     }
 
     // 파일 정보 조회
-    async getFile(fileId: string): Promise<any> {
+    async getFile(fileId: string): Promise<GoogleDriveFile | null> {
         const safeFileId = this.validateDriveId(fileId);
         const res = await requestUrl({
             url: `https://www.googleapis.com/drive/v3/files/${safeFileId}?fields=id,name,mimeType,modifiedTime,parents,trashed`,
@@ -379,7 +404,7 @@ export class GoogleDriveClient {
             headers: await this.getHeaders()
         });
         if (res.status !== 200) return null;
-        return res.json;
+        return res.json as GoogleDriveFile;
     }
 }
 
