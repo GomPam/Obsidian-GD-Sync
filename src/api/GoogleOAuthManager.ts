@@ -56,9 +56,9 @@ export class GoogleOAuthManager {
 
                 let json: { error?: string, error_description?: string, refresh_token?: string, access_token?: string, expires_in?: number };
                 try {
-                    json = response.json as any;
+                    json = response.json as unknown as typeof json;
                 } catch {
-                    new Notice("Auth proxy error: Server did not return JSON.");
+                    new Notice("Auth proxy error: server did not return JSON.");
                     throw new Error(`Auth proxy error: HTTP ${response.status}`);
                 }
 
@@ -141,7 +141,7 @@ export class GoogleOAuthManager {
 
         let json: { error?: string, error_description?: string, refresh_token?: string, access_token?: string, expires_in?: number };
         try {
-            json = response.json as any;
+            json = response.json as unknown as typeof json;
         } catch {
             throw new Error(`Auth proxy error: HTTP ${response.status}`);
         }
@@ -172,7 +172,7 @@ export class GoogleOAuthManager {
     private generateRandomString(length: number) {
         const array = new Uint8Array(length);
         window.crypto.getRandomValues(array);
-        return Array.from(array, dec => ('0' + dec.toString(16)).substr(-2)).join('').substring(0, length);
+        return Array.from(array, dec => ('0' + dec.toString(16)).slice(-2)).join('').substring(0, length);
     }
 
     private async generateCodeChallenge(codeVerifier: string) {
@@ -183,7 +183,7 @@ export class GoogleOAuthManager {
     }
 
     private base64UrlEncode(array: Uint8Array) {
-        return btoa(String.fromCharCode.apply(null, array as unknown as any))
+        return btoa(String.fromCharCode.apply(null, array as unknown as number[]))
             .replace(/\+/g, '-')
             .replace(/\//g, '_')
             .replace(/=+$/, '');

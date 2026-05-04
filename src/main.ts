@@ -42,7 +42,7 @@ export default class GDSyncPlugin extends Plugin {
         await this.syncManager.initialize();
 
         // Troubleshooting notice for clean install/reset
-        console.log('[GD Sync] Plugin loaded successfully.');
+        console.debug('[GD Sync] Plugin loaded successfully.');
 
         this.ribbonIconEl = this.addRibbonIcon('cloud', t('RIBBON_TOOLTIP'), (evt: MouseEvent) => {
             this.syncManager.syncDelta();
