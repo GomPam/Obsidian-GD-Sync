@@ -760,7 +760,10 @@ export class SyncManager {
             }
 
             // 2.1b 로컬 폴더 동기화 (로컬의 빈 폴더도 원격에 반영되도록 보장)
-            const allLocalFolders = this.plugin.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder);
+            // 깊이 순 정렬: 부모 폴더가 먼저 생성/캐시되어 자식 폴더 처리 시 캐시 히트 보장
+            const allLocalFolders = this.plugin.app.vault.getAllLoadedFiles()
+                .filter((f): f is TFolder => f instanceof TFolder)
+                .sort((a, b) => a.path.split('/').length - b.path.split('/').length);
             for (const folder of allLocalFolders) {
                 if (folder.isRoot() || this.isIgnoredPath(folder.path)) continue;
                 if (remoteFoldersByPath.has(folder.path)) continue; // 이미 원격에 존재하고 캐시됨
