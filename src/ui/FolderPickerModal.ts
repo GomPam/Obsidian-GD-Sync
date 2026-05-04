@@ -15,7 +15,7 @@ export class FolderPickerModal extends Modal {
     // 폴더 탐색을 위한 히스토리(Breadcrumbs) 스택
     private pathStack: {id: string, name: string}[] = [{id: 'root', name: 'root'}];
 
-    constructor(app: App, private plugin: GDSyncPlugin, private onSelect: (folder: DriveFolder, fullPath: {id: string, name: string}[]) => void) {
+    constructor(app: App, private plugin: GDSyncPlugin, private onSelect: (folder: DriveFolder, fullPath: {id: string, name: string}[]) => void | Promise<void>) {
         super(app);
         // 기존에 저장된 경로가 있다면 복원
         if (this.plugin.settings.syncFolderPath && this.plugin.settings.syncFolderPath.length > 0) {
