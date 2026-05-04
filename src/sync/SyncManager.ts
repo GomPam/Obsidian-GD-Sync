@@ -1,5 +1,5 @@
-import { Notice, TFile } from 'obsidian';
-import { GoogleDriveClient } from '../api/GoogleDriveClient';
+import { Notice, TFile, TAbstractFile } from 'obsidian';
+import { GoogleDriveClient, GoogleDriveFile } from '../api/GoogleDriveClient';
 import { SyncState, FileSyncData } from './SyncState';
 import { t } from '../lang/helpers';
 import GDSyncPlugin from '../main';
@@ -43,7 +43,7 @@ export class SyncManager {
                 // 구글 드라이브 루트(root)에서 이름으로 검색
                 let foundId = await this.driveClient.findFolder(folderName, 'root');
                 if (!foundId) {
-                    console.log(`[GD Sync] Creating target folder: ${folderName}`);
+                    console.debug(`[GD Sync] Creating target folder: ${folderName}`);
                     foundId = await this.driveClient.createFolder(folderName, 'root');
                 }
                 targetId = foundId;
@@ -55,7 +55,7 @@ export class SyncManager {
             if (!trashId) {
                 let foundTrashId = await this.driveClient.findFolder('.trash', targetId);
                 if (!foundTrashId) {
-                    console.log(`[GD Sync] 휴지통 폴더('.trash') 생성 중...`);
+                    console.debug(`[GD Sync] 휴지통 폴더('.trash') 생성 중...`);
                     foundTrashId = await this.driveClient.createFolder('.trash', targetId);
                 }
                 trashId = foundTrashId;
@@ -98,7 +98,7 @@ export class SyncManager {
 
             let foundId = await this.driveClient.findFolder(folderName, currentParentId);
             if (!foundId) {
-                console.log(`[GD Sync] Creating intermediate folder: ${currentPath}`);
+                console.debug(`[GD Sync] Creating intermediate folder: ${currentPath}`);
                 foundId = await this.driveClient.createFolder(folderName, currentParentId);
             }
 
@@ -114,7 +114,7 @@ export class SyncManager {
     // 동기화 제외 대상 (.trash 등) 판별
     private isIgnoredPath(filePath: string): boolean {
         return filePath === '.trash' || filePath.startsWith('.trash/')
-            || filePath === '.obsidian' || filePath.startsWith('.obsidian/');
+            || filePath === this.plugin.app.vault.configDir || filePath.startsWith(this.plugin.app.vault.configDir + '/');
     }
 
     // 파일 확장자기반 MIME 반환 (V2-M02)
@@ -269,7 +269,7 @@ export class SyncManager {
     }
 
     // 파일/폴더 이름/경로 변경 처리 (조용히 메타데이터만 변경)
-    async handleRenameImmediate(file: TFile | any, oldPath: string, retryCount: number = 0) {
+    async handleRenameImmediate(file: TAbstractFile, oldPath: string, retryCount: number = 0) {
         // SEC-H05: changed from && to || so it handles cases where file enters or leaves ignored folder
         if (this.isIgnoredPath(file.path) || this.isIgnoredPath(oldPath)) return;
         if (this.isSyncing) {
@@ -366,12 +366,12 @@ export class SyncManager {
         const queue = this.state.getLocalQueue();
         if (queue.length === 0) return;
 
-        console.log(`[GD Sync] Processing local queue... (${queue.length} items)`);
+        console.debug(`[GD Sync] Processing local queue... (${queue.length} items)`);
         this.state.clearLocalQueue();
 
         for (const item of queue) {
             try {
-                const rCount = (item as any)._retryCount || 0;
+                const rCount = item._retryCount || 0;
                 if (item.action === 'upload') {
                     const file = this.plugin.app.vault.getAbstractFileByPath(item.path);
                     if (file instanceof TFile) {
@@ -418,14 +418,14 @@ export class SyncManager {
             let downloadCount = 0;
 
             if (changes.length === 0) {
-                console.log("[GD Sync] No remote changes detected (Delta).");
+                console.debug("[GD Sync] No remote changes detected (Delta).");
                 this.state.setStartPageToken(newStartPageToken);
                 await this.state.save();
                 this.plugin.updateSyncStatus(t("STATUS_LAST_SYNC", { time: new Date().toLocaleTimeString() }));
                 return;
             }
 
-            console.log(`[GD Sync] Detected ${changes.length} remote changes.`);
+            console.debug(`[GD Sync] Detected ${changes.length} remote changes.`);
 
             const targetFolderId = this.state.getTargetFolderId()!;
 
@@ -495,7 +495,7 @@ export class SyncManager {
 
                 // 3. 경로가 바뀌었다면 로컬 이름변경/이동 수행
                 if (localPath && localPath !== currentRemotePath) {
-                    console.log(`[GD Sync] Remote rename detected: ${localPath} -> ${currentRemotePath}`);
+                    console.debug(`[GD Sync] Remote rename detected: ${localPath} -> ${currentRemotePath}`);
                     const existingFile = this.plugin.app.vault.getAbstractFileByPath(localPath);
                     if (existingFile) {
                         // 중간 폴더가 없을 경우 생성
@@ -549,17 +549,20 @@ export class SyncManager {
                     if (localMtime > lastSyncTime + 1000) {
                         // 사용자가 현재 수정 중인 파일(데바운스 대기 중)은 충돌 처리를 뒤로 미룸
                         if (this.plugin.modifyDebounceTimers.has(localPath)) {
-                            console.log(`[GD Sync] Skipping conflict resolution for actively edited/debouncing file: ${localPath}`);
+                            console.debug(`[GD Sync] Skipping conflict resolution for actively edited/debouncing file: ${localPath}`);
                             continue;
                         }
-                        const resolved = await this.handleConflict(localFile as TFile, file);
-                        if (resolved === 'upload') uploadCount++;
-                        else if (resolved === 'download') downloadCount++;
-                        else if (resolved === 'both') { uploadCount++; downloadCount++; }
+                        const abstractFile = localFile; // name change to avoid shadowing or confusion
+                        if (abstractFile instanceof TFile) {
+                            const resolved = await this.handleConflict(abstractFile, file);
+                            if (resolved === 'upload') uploadCount++;
+                            else if (resolved === 'download') downloadCount++;
+                            else if (resolved === 'both') { uploadCount++; downloadCount++; }
+                        }
                     } else {
                         // 현재 에디터에서 열려 있고 수정 중일 수도 있으므로 체크
                         if (this.plugin.modifyDebounceTimers.has(localPath)) {
-                            console.log(`[GD Sync] Skipping download for actively edited file to avoid overwrite: ${localPath}`);
+                            console.debug(`[GD Sync] Skipping download for actively edited file to avoid overwrite: ${localPath}`);
                             continue;
                         }
                         await this.downloadFile(localPath, file);
@@ -601,12 +604,12 @@ export class SyncManager {
         }
     }
 
-    private async resolveRemotePath(file: any, targetRootId: string): Promise<string | null> {
+    private async resolveRemotePath(file: GoogleDriveFile, targetRootId: string): Promise<string | null> {
         let current = file;
         const pathParts: string[] = [current.name];
 
         while (current.parents && current.parents.length > 0) {
-            const parentId = current.parents[0];
+            const parentId = current.parents[0]!;
             if (parentId === targetRootId) return pathParts.join('/');
 
             // 폴더 캐시 확인
@@ -616,8 +619,9 @@ export class SyncManager {
             }
 
             // API로 부모 정보 가져오기
-            current = await this.driveClient.getFile(parentId);
-            if (!current || current.trashed) return null;
+            const parentFile = await this.driveClient.getFile(parentId);
+            if (!parentFile || parentFile.trashed) return null;
+            current = parentFile;
             pathParts.unshift(current.name);
         }
         return null;
@@ -661,11 +665,11 @@ export class SyncManager {
             // 1. 구글 드라이브 내 전체 트리 구조 스캔
             this.plugin.updateSyncStatus(t("STATUS_LISTING"));
             const remoteFilesArray = await this.driveClient.listAllFilesInTree(targetFolderId);
-            const remoteMap = new Map<string, any>();
+            const remoteMap = new Map<string, GoogleDriveFile>();
             remoteFilesArray.forEach(f => remoteMap.set(f.id, f));
 
-            const remoteFilesByPath = new Map<string, any>();
-            const remoteFoldersByPath = new Map<string, any>();
+            const remoteFilesByPath = new Map<string, GoogleDriveFile>();
+            const remoteFoldersByPath = new Map<string, GoogleDriveFile>();
 
             for (const f of remoteFilesArray) {
                 const localPath = this.buildLocalPathFromRemote(f.id, remoteMap, targetFolderId);
@@ -692,7 +696,7 @@ export class SyncManager {
                 this.state.setFolderId(remotePath, remoteFolder.id);
                 const existingLocal = this.plugin.app.vault.getAbstractFileByPath(remotePath);
                 if (!existingLocal) {
-                    console.log(`[GD Sync] Creating empty folder from remote: ${remotePath}`);
+                    console.debug(`[GD Sync] Creating empty folder from remote: ${remotePath}`);
                     await this.plugin.app.vault.createFolder(remotePath);
                 }
             }
@@ -719,17 +723,17 @@ export class SyncManager {
                         // 이름이 바뀌었으므로 로컬 경로 조정
                         const newPath = this.buildLocalPathFromRemote(remoteFile.id, remoteMap, targetFolderId);
                         if (newPath && newPath !== path) {
-                            console.log(`[GD Sync] FullSync: Rename detected via ID: ${path} -> ${newPath}`);
+                            console.debug(`[GD Sync] FullSync: Rename detected via ID: ${path} -> ${newPath}`);
                             const fileObj = this.plugin.app.vault.getAbstractFileByPath(path);
                             if (fileObj) {
                                 await this.plugin.app.vault.rename(fileObj, newPath);
                                 this.state.renameFileData(path, newPath);
                                 // 루프 진행을 위해 현재 path 변수와 data 업데이트
                                 processedPaths.add(newPath);
-                                const updatedLocalFile = this.plugin.app.vault.getAbstractFileByPath(newPath) as TFile;
-                                if (updatedLocalFile) {
+                                const abstractUpdated = this.plugin.app.vault.getAbstractFileByPath(newPath);
+                                if (abstractUpdated instanceof TFile) {
                                     // 동기화 로직은 바뀐 경로로 계속 진행
-                                    await this.syncWholeVaultOneFile(updatedLocalFile, remoteFile, data, true);
+                                    await this.syncWholeVaultOneFile(abstractUpdated, remoteFile, data, true);
                                     if (remoteFile) processedDriveIds.add(remoteFile.id);
                                     continue;
                                 }
@@ -742,7 +746,7 @@ export class SyncManager {
 
                 const localMtime = localFile.stat.mtime;
                 const lastSyncTime = data?.lastSyncTime || 0;
-                const remoteMtime = remoteFile ? new Date(remoteFile.modifiedTime).getTime() : 0;
+                const remoteMtime = (remoteFile && remoteFile.modifiedTime) ? new Date(remoteFile.modifiedTime).getTime() : 0;
 
                 const isLocalChanged = localMtime > lastSyncTime + 1000;
                 const isRemoteChanged = remoteFile && (remoteMtime > lastSyncTime + 1000);
@@ -765,7 +769,7 @@ export class SyncManager {
                 } else if (isRemoteChanged) {
                     // 원격만 변경됨 -> 다운로드
                     this.plugin.updateSyncStatus(t("STATUS_DOWNLOADING", { name: localFile.name }));
-                    await this.downloadFile(path, remoteFile);
+                    await this.downloadFile(path, remoteFile!);
                     downloadCount++;
                 } else if (!data && remoteFile) {
                     this.plugin.updateSyncStatus(t("STATUS_SYNCING", { name: localFile.name }));
@@ -781,13 +785,15 @@ export class SyncManager {
             // 2.3 원격에만 있는 파일 다운로드
             const remoteOnlyPaths = Array.from(remoteFilesByPath.keys()).filter(p => {
                 const f = remoteFilesByPath.get(p);
-                return !processedPaths.has(p) && !processedDriveIds.has(f.id);
+                return f && !processedPaths.has(p) && !processedDriveIds.has(f.id);
             });
 
             let remoteOnlyIdx = 0;
             for (const remotePath of remoteOnlyPaths) {
                 remoteOnlyIdx++;
                 const remoteFile = remoteFilesByPath.get(remotePath);
+                if (!remoteFile) continue;
+
                 this.plugin.updateSyncStatus(t("STATUS_REMOTE_NEW", { current: remoteOnlyIdx, total: remoteOnlyPaths.length }));
 
                 await this.downloadFile(remotePath, remoteFile);
@@ -804,9 +810,10 @@ export class SyncManager {
                 this.plugin.updateSyncStatus(t("STATUS_LAST_SYNC", { time: new Date().toLocaleTimeString() }));
             }
 
-        } catch (e: any) {
-            console.error("[GD Sync] Full Sync failed:", e);
-            new Notice(t("NOTICE_ERROR", { msg: e.message }));
+        } catch (err: unknown) {
+            const e = err as { message?: string };
+            console.error("[GD Sync] Full Sync failed:", err);
+            new Notice(t("NOTICE_ERROR", { msg: e.message || 'Unknown error' }));
             this.plugin.updateSyncStatus(t("STATUS_ERROR"));
         } finally {
             this.isSyncing = false;
@@ -815,18 +822,18 @@ export class SyncManager {
     }
 
     // 개별 파일 동기화 판단 로직 모듈화 (FullSync용)
-    private async syncWholeVaultOneFile(localFile: TFile, remoteFile: any, data: FileSyncData | undefined, isPathAlreadySynced: boolean = false) {
+    private async syncWholeVaultOneFile(localFile: TFile, remoteFile: GoogleDriveFile, data: FileSyncData | undefined, isPathAlreadySynced: boolean = false) {
         const path = localFile.path;
         const localMtime = localFile.stat.mtime;
         const lastSyncTime = data?.lastSyncTime || 0;
-        const remoteMtime = remoteFile ? new Date(remoteFile.modifiedTime).getTime() : 0;
+        const remoteMtime = (remoteFile && remoteFile.modifiedTime) ? new Date(remoteFile.modifiedTime).getTime() : 0;
 
         const isLocalChanged = localMtime > lastSyncTime + 1000;
         const isRemoteChanged = remoteFile && (remoteMtime > lastSyncTime + 1000);
 
         if (isLocalChanged && isRemoteChanged) {
             this.plugin.updateSyncStatus(t("STATUS_CONFLICT", { name: localFile.name }));
-            await this.handleConflict(localFile, remoteFile!);
+            await this.handleConflict(localFile, remoteFile);
             return 'conflict';
         } else if (isLocalChanged) {
             this.plugin.updateSyncStatus(t("STATUS_UPLOADING", { name: localFile.name }));
@@ -849,13 +856,13 @@ export class SyncManager {
     }
 
     // SEC-M06: Definition of buildLocalPathFromRemote
-    private buildLocalPathFromRemote(fileId: string, remoteMap: Map<string, any>, targetRootId: string): string | null {
+    private buildLocalPathFromRemote(fileId: string, remoteMap: Map<string, GoogleDriveFile>, targetRootId: string): string | null {
         let current = remoteMap.get(fileId);
         if (!current) return null;
         let pathParts: string[] = [current.name];
 
         while (current.parents && current.parents.length > 0) {
-            const parentId = current.parents[0];
+            const parentId = current.parents[0]!;
             if (parentId === targetRootId) {
                 break;
             }
@@ -867,8 +874,8 @@ export class SyncManager {
     }
 
     // 개별 파일 다운로드 로직 분리
-    private async downloadFile(localPath: string, remoteFile: any) {
-        console.log(`[GD Sync] Downloading: ${localPath}`);
+    private async downloadFile(localPath: string, remoteFile: GoogleDriveFile) {
+        console.debug(`[GD Sync] Downloading: ${localPath}`);
 
         this.recentlyDownloaded.add(localPath);
         setTimeout(() => this.recentlyDownloaded.delete(localPath), 3000);
@@ -907,7 +914,7 @@ export class SyncManager {
     }
 
     // 충돌 해결 핸들러
-    private async handleConflict(localFile: TFile, remoteFile: any): Promise<'upload' | 'download' | 'both' | 'skip'> {
+    private async handleConflict(localFile: TFile, remoteFile: GoogleDriveFile): Promise<'upload' | 'download' | 'both' | 'skip'> {
         let strategy = this.plugin.settings.conflictStrategy;
 
         if (strategy === 'manual') {
@@ -916,7 +923,7 @@ export class SyncManager {
                 this.plugin.app,
                 localFile.path,
                 localFile.stat.mtime,
-                new Date(remoteFile.modifiedTime).getTime()
+                (remoteFile.modifiedTime ? new Date(remoteFile.modifiedTime).getTime() : 0)
             );
             const choice = await modal.openAndGetChoice();
 
@@ -962,11 +969,11 @@ export class SyncManager {
             }
         }
 
-        this.state.addSyncLog({ action: 'conflict', fileName: localFile.path, details: `Resolved: ${strategy}` });
+        this.state.addSyncLog({ action: 'conflict', fileName: localFile.path, details: `Resolved: ${strategy as string}` });
         return 'skip';
     }
 
-    private async doKeepBoth(localFile: TFile, remoteFile: any, strategyMsg: string) {
+    private async doKeepBoth(localFile: TFile, remoteFile: GoogleDriveFile, strategyMsg: string) {
         // 1. 로컬 파일을 사본으로 복제
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const extension = localFile.extension;
@@ -992,7 +999,7 @@ export class SyncManager {
         const trashPath = '.trash';
         if (!(await this.plugin.app.vault.adapter.exists(trashPath))) return;
 
-        console.log(`[GD Sync] Starting .trash cleanup (Older than ${days} days)`);
+        console.debug(`[GD Sync] Starting .trash cleanup (Older than ${days} days)`);
         let count = 0;
         const now = Date.now();
         const threshold = days * 24 * 60 * 60 * 1000;
@@ -1020,12 +1027,13 @@ export class SyncManager {
                     await this.plugin.app.vault.adapter.remove(folderPath);
                     count++;
                 }
-            } catch {
+            } catch (err) {
+                console.debug(`[GD Sync] Failed to cleanup trash folder (might not be empty): ${folderPath}`, err);
             }
         }
 
         if (count > 0) {
-            console.log(`[GD Sync] .trash cleanup done. Removed ${count} items.`);
+            console.debug(`[GD Sync] .trash cleanup done. Removed ${count} items.`);
             new Notice(t('SETTING_TRASH_CLEANUP_NOTICE', { count: count.toString() }));
         }
     }
