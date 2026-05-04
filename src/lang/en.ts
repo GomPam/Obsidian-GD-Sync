@@ -36,6 +36,8 @@ export default {
     STATUS_DOWNLOADING: "Downloading {name}...",
     STATUS_SYNCING: "Syncing {name}...",
     STATUS_REMOTE_NEW: "Remote New: {current}/{total}",
+    STATUS_SYNCING_FOLDERS: "Syncing folders {current}/{total}...",
+    STATUS_CREATING_FOLDERS: "Creating folders {current}/{total}...",
     STATUS_LAST_SYNC: "Last sync: {time}",
     STATUS_UP_TO_DATE: "Up to date ({time})",
     STATUS_SYNCED: "Synced ({up} up, {down} down)",

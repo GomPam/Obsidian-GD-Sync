@@ -237,25 +237,60 @@ export class GoogleDriveClient {
     }
 
     // 5. 기존 파일 콘텐츠 업데이트 (Multipart OR 단순 패치)
-    async updateFile(fileId: string, content: ArrayBuffer | string, mimeType: string = 'text/markdown'): Promise<GoogleDriveFile> {
+    async updateFile(fileId: string, content: ArrayBuffer | string, mimeType: string = 'text/markdown', modifiedTime?: number): Promise<GoogleDriveFile> {
         const isBinary = content instanceof ArrayBuffer;
         const safeFileId = this.validateDriveId(fileId);
-        
+
+        // modifiedTime이 주어진 경우 multipart로 메타데이터+콘텐츠를 한 번에 업데이트
+        if (modifiedTime !== undefined) {
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            const metadata = {
+                modifiedTime: new Date(modifiedTime).toISOString()
+            };
+
+            let base64Data = "";
+            if (isBinary) {
+                base64Data = arrayBufferToBase64(content);
+            }
+
+            const multipartRequestBody =
+                delimiter +
+                'Content-Type: application/json\r\n\r\n' +
+                JSON.stringify(metadata) +
+                delimiter +
+                'Content-Type: ' + mimeType + (isBinary ? '\r\nContent-Transfer-Encoding: base64' : '') + '\r\n\r\n' +
+                (isBinary ? base64Data : content) +
+                close_delim;
+
+            const res = await requestUrl({
+                url: `https://www.googleapis.com/upload/drive/v3/files/${safeFileId}?uploadType=multipart`,
+                method: 'PATCH',
+                headers: {
+                    ...(await this.getHeaders()),
+                    'Content-Type': `multipart/related; boundary=${boundary}`
+                },
+                body: multipartRequestBody
+            });
+
+            if (res.status !== 200) {
+                new Notice(t('NOTICE_ERROR', { msg: `Update failed (HTTP ${res.status})` }));
+                throw new Error(`파일 업데이트 실패: ${res.status}`);
+            }
+            return res.json as GoogleDriveFile;
+        }
+
+        // 콘텐츠만 업데이트 (메타데이터 변경 없음)
         const headers = await this.getHeaders();
         headers['Content-Type'] = mimeType;
-        
-        let body: ArrayBuffer | string;
-        if (isBinary) {
-            body = content;
-        } else {
-            body = content;
-        }
 
         const res = await requestUrl({
             url: `https://www.googleapis.com/upload/drive/v3/files/${safeFileId}?uploadType=media`,
             method: 'PATCH',
             headers: headers,
-            body: body
+            body: isBinary ? content : content
         });
 
         if (res.status !== 200) {

@@ -38,6 +38,8 @@ const ko: typeof en = {
     STATUS_DOWNLOADING: "다운로드 중 {name}...",
     STATUS_SYNCING: "동기화 중 {name}...",
     STATUS_REMOTE_NEW: "원격 새 항목: {current}/{total}",
+    STATUS_SYNCING_FOLDERS: "폴더 동기화 {current}/{total}...",
+    STATUS_CREATING_FOLDERS: "폴더 생성 {current}/{total}...",
     STATUS_LAST_SYNC: "마지막 동기화: {time}",
     STATUS_UP_TO_DATE: "최신 상태입니다 ({time})",
     STATUS_SYNCED: "동기화 완료 (업로드 {up}, 다운로드 {down})",

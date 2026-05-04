@@ -4,6 +4,20 @@ import { SyncState, FileSyncData } from './SyncState';
 import { t } from '../lang/helpers';
 import GDSyncPlugin from '../main';
 
+interface UploadOptions {
+    skipPrepare?: boolean;   // prepareFolders 스킵 (Full Sync에서 이미 완료)
+    skipMove?: boolean;      // renameAndMove 스킵 (경로 미변경 시)
+    skipSave?: boolean;      // state.save 스킵 (배치 저장용)
+    skipNotice?: boolean;    // 파일별 Notice 알림 스킵
+}
+
+const FULL_SYNC_OPTS: UploadOptions = {
+    skipPrepare: true,
+    skipMove: true,
+    skipSave: true,
+    skipNotice: true
+};
+
 export class SyncManager {
     public driveClient: GoogleDriveClient;
     public state: SyncState;
@@ -175,7 +189,7 @@ export class SyncManager {
     }
 
     // 로컬 단일 파일 업로드 (즉시 동기화 트리거용)
-    async uploadFileImmediate(file: TFile, isFromFullSync: boolean = false, retryCount: number = 0) {
+    async uploadFileImmediate(file: TFile, isFromFullSync: boolean = false, retryCount: number = 0, options: UploadOptions = {}) {
         if (this.isIgnoredPath(file.path) || !this.isAllowedExtension(file.name)) return;
         if (this.recentlyDownloaded.has(file.path)) return;
 
@@ -194,11 +208,13 @@ export class SyncManager {
         }
 
         try {
-            const ready = await this.prepareFolders();
-            if (!ready) {
-                this.state.addToLocalQueue({ action: 'upload', path: file.path, _retryCount: retryCount });
-                await this.state.save();
-                return;
+            if (!options.skipPrepare) {
+                const ready = await this.prepareFolders();
+                if (!ready) {
+                    this.state.addToLocalQueue({ action: 'upload', path: file.path, _retryCount: retryCount });
+                    await this.state.save();
+                    return;
+                }
             }
 
             const targetFolderId = await this.getOrCreateDrivePath(file.path);
@@ -215,8 +231,14 @@ export class SyncManager {
             let fileData = this.state.getFileData(file.path);
 
             if (fileData && fileData.driveId) {
-                await this.driveClient.updateFile(fileData.driveId, content, this.getMimeType(file.name));
-                await this.driveClient.renameAndMove(fileData.driveId, file.name, targetFolderId, file.stat.mtime);
+                if (options.skipMove) {
+                    // 콘텐츠 + modifiedTime만 한 번에 업데이트 (API 1회)
+                    await this.driveClient.updateFile(fileData.driveId, content, this.getMimeType(file.name), file.stat.mtime);
+                } else {
+                    // 단건 업로드: 이름/위치 변경 가능성이 있으므로 renameAndMove 포함 (API 3회)
+                    await this.driveClient.updateFile(fileData.driveId, content, this.getMimeType(file.name));
+                    await this.driveClient.renameAndMove(fileData.driveId, file.name, targetFolderId, file.stat.mtime);
+                }
                 fileData.lastSyncTime = file.stat.mtime;
                 this.state.setFileData(file.path, fileData);
             } else {
@@ -227,10 +249,13 @@ export class SyncManager {
                 });
             }
 
-            await this.state.save();
+            if (!options.skipSave) {
+                await this.state.save();
+            }
 
-            // 업로드 완료 알림 표시
-            new Notice(t("NOTICE_UPLOAD_COMPLETE", { name: file.name }));
+            if (!options.skipNotice) {
+                new Notice(t("NOTICE_UPLOAD_COMPLETE", { name: file.name }));
+            }
 
             this.plugin.updateSyncStatus(t("STATUS_LAST_SYNC", { time: new Date().toLocaleTimeString() }));
             this.state.addSyncLog({ action: 'upload', fileName: file.path });
@@ -769,7 +794,11 @@ export class SyncManager {
             const processedDriveIds = new Set<string>();
 
             // 2.1 원격 폴더 동기화 (우선 처리) + 캐시 워밍업
+            let folderIdx = 0;
+            const totalRemoteFolders = remoteFoldersByPath.size;
             for (const [remotePath, remoteFolder] of remoteFoldersByPath.entries()) {
+                folderIdx++;
+                this.plugin.updateSyncStatus(t('STATUS_SYNCING_FOLDERS', { current: folderIdx, total: totalRemoteFolders }));
                 this.state.setFolderId(remotePath, remoteFolder.id);
                 this.folderIdCache.set(remotePath, remoteFolder.id);
                 const existingLocal = this.plugin.app.vault.getAbstractFileByPath(remotePath);
@@ -784,9 +813,11 @@ export class SyncManager {
             const allLocalFolders = this.plugin.app.vault.getAllLoadedFiles()
                 .filter((f): f is TFolder => f instanceof TFolder)
                 .sort((a, b) => a.path.split('/').length - b.path.split('/').length);
-            for (const folder of allLocalFolders) {
-                if (folder.isRoot() || this.isIgnoredPath(folder.path)) continue;
-                if (remoteFoldersByPath.has(folder.path)) continue; // 이미 원격에 존재하고 캐시됨
+            const newLocalFolders = allLocalFolders.filter(f => !f.isRoot() && !this.isIgnoredPath(f.path) && !remoteFoldersByPath.has(f.path));
+            let localFolderIdx = 0;
+            for (const folder of newLocalFolders) {
+                localFolderIdx++;
+                this.plugin.updateSyncStatus(t('STATUS_CREATING_FOLDERS', { current: localFolderIdx, total: newLocalFolders.length }));
                 await this.getOrCreateDrivePath(folder.path, true);
             }
 
@@ -853,7 +884,7 @@ export class SyncManager {
                 } else if (isLocalChanged) {
                     // 로컬만 변경됨 -> 업로드
                     this.plugin.updateSyncStatus(t("STATUS_UPLOADING", { name: localFile.name }));
-                    await this.uploadFileImmediate(localFile, true);
+                    await this.uploadFileImmediate(localFile, true, 0, FULL_SYNC_OPTS);
                     uploadCount++;
                 } else if (isRemoteChanged) {
                     // 원격만 변경됨 -> 다운로드
@@ -866,8 +897,13 @@ export class SyncManager {
                     downloadCount++;
                 } else if (!remoteFile) {
                     this.plugin.updateSyncStatus(t("STATUS_UPLOADING", { name: localFile.name }));
-                    await this.uploadFileImmediate(localFile, true);
+                    await this.uploadFileImmediate(localFile, true, 0, FULL_SYNC_OPTS);
                     uploadCount++;
+                }
+
+                // 배치 state.save: 20개 파일마다 중간 저장 (크래시 방어)
+                if ((uploadCount + downloadCount) % 20 === 0 && (uploadCount + downloadCount) > 0) {
+                    await this.state.save();
                 }
             }
 
@@ -926,7 +962,7 @@ export class SyncManager {
             return 'conflict';
         } else if (isLocalChanged) {
             this.plugin.updateSyncStatus(t("STATUS_UPLOADING", { name: localFile.name }));
-            await this.uploadFileImmediate(localFile, true);
+            await this.uploadFileImmediate(localFile, true, 0, FULL_SYNC_OPTS);
             return 'upload';
         } else if (isRemoteChanged) {
             this.plugin.updateSyncStatus(t("STATUS_DOWNLOADING", { name: localFile.name }));
@@ -938,7 +974,7 @@ export class SyncManager {
             return 'download';
         } else if (!remoteFile) {
             this.plugin.updateSyncStatus(t("STATUS_UPLOADING", { name: localFile.name }));
-            await this.uploadFileImmediate(localFile, true);
+            await this.uploadFileImmediate(localFile, true, 0, FULL_SYNC_OPTS);
             return 'upload';
         }
         return 'none';
