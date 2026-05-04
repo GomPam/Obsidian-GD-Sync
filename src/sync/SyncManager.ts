@@ -102,7 +102,8 @@ export class SyncManager {
     }
 
     // 로컬 상대 경로를 기반으로 구글 드라이브 내 폴더 생성/추적
-    private async getOrCreateDrivePath(targetPath: string, isFolder: boolean = false): Promise<string> {
+    // skipFind: true일 때 findFolder 생략하고 바로 createFolder (원격에 없는 것이 확실한 경우)
+    private async getOrCreateDrivePath(targetPath: string, isFolder: boolean = false, skipFind: boolean = false): Promise<string> {
         const targetRootId = this.state.getTargetFolderId()!;
         const parts = targetPath.split('/');
 
@@ -131,9 +132,12 @@ export class SyncManager {
             }
 
             const createPromise = (async () => {
-                let foundId = await this.driveClient.findFolder(folderName, currentParentId);
+                let foundId: string | null = null;
+                if (!skipFind) {
+                    foundId = await this.driveClient.findFolder(folderName, currentParentId);
+                }
                 if (!foundId) {
-                    console.debug(`[GD Sync] Creating intermediate folder: ${currentPath}`);
+                    console.debug(`[GD Sync] Creating folder: ${currentPath}`);
                     foundId = await this.driveClient.createFolder(folderName, currentParentId);
                 }
                 
@@ -811,14 +815,33 @@ export class SyncManager {
             // 2.1b 로컬 폴더 동기화 (로컬의 빈 폴더도 원격에 반영되도록 보장)
             // 깊이 순 정렬: 부모 폴더가 먼저 생성/캐시되어 자식 폴더 처리 시 캐시 히트 보장
             const allLocalFolders = this.plugin.app.vault.getAllLoadedFiles()
-                .filter((f): f is TFolder => f instanceof TFolder)
-                .sort((a, b) => a.path.split('/').length - b.path.split('/').length);
+                .filter((f): f is TFolder => f instanceof TFolder);
             const newLocalFolders = allLocalFolders.filter(f => !f.isRoot() && !this.isIgnoredPath(f.path) && !remoteFoldersByPath.has(f.path));
-            let localFolderIdx = 0;
-            for (const folder of newLocalFolders) {
-                localFolderIdx++;
-                this.plugin.updateSyncStatus(t('STATUS_CREATING_FOLDERS', { current: localFolderIdx, total: newLocalFolders.length }));
-                await this.getOrCreateDrivePath(folder.path, true);
+
+            if (newLocalFolders.length > 0) {
+                // 깊이별로 그룹화하여 같은 깊이의 폴더들을 병렬 처리
+                const foldersByDepth = new Map<number, TFolder[]>();
+                for (const folder of newLocalFolders) {
+                    const depth = folder.path.split('/').length;
+                    if (!foldersByDepth.has(depth)) foldersByDepth.set(depth, []);
+                    foldersByDepth.get(depth)!.push(folder);
+                }
+
+                const sortedDepths = Array.from(foldersByDepth.keys()).sort((a, b) => a - b);
+                const FOLDER_CONCURRENCY = 5;
+                let localFolderIdx = 0;
+
+                for (const depth of sortedDepths) {
+                    const foldersAtDepth = foldersByDepth.get(depth)!;
+                    // 같은 깊이의 폴더들은 서로 의존성이 없으므로 병렬 처리 가능
+                    for (let i = 0; i < foldersAtDepth.length; i += FOLDER_CONCURRENCY) {
+                        const batch = foldersAtDepth.slice(i, i + FOLDER_CONCURRENCY);
+                        // skipFind=true: remoteFoldersByPath에 없으므로 원격에 미존재 확정
+                        await Promise.all(batch.map(f => this.getOrCreateDrivePath(f.path, true, true)));
+                        localFolderIdx += batch.length;
+                        this.plugin.updateSyncStatus(t('STATUS_CREATING_FOLDERS', { current: localFolderIdx, total: newLocalFolders.length }));
+                    }
+                }
             }
 
             // 2.2 파일 동기화 계획 실행
