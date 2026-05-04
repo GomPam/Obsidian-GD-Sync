@@ -45,14 +45,14 @@ export default class GDSyncPlugin extends Plugin {
         console.debug('[GD Sync] Plugin loaded successfully.');
 
         this.ribbonIconEl = this.addRibbonIcon('cloud', t('RIBBON_TOOLTIP'), (evt: MouseEvent) => {
-            this.syncManager.syncDelta();
+            void this.syncManager.syncDelta();
         });
 
         this.addCommand({
             id: 'force-full-sync',
             name: t('COMMAND_FORCE_SYNC'),
             callback: () => {
-                this.syncManager.syncWholeVault();
+                void this.syncManager.syncWholeVault();
             }
         });
 
@@ -74,7 +74,7 @@ export default class GDSyncPlugin extends Plugin {
 
             const timer = window.setTimeout(() => {
                 this.modifyDebounceTimers.delete(file.path);
-                this.syncManager.uploadFileImmediate(file);
+                void this.syncManager.uploadFileImmediate(file);
             }, delay);
 
             this.modifyDebounceTimers.set(file.path, timer);
@@ -102,7 +102,7 @@ export default class GDSyncPlugin extends Plugin {
                     window.clearTimeout(prev);
                     this.modifyDebounceTimers.delete(file.path);
                 }
-                this.syncManager.handleLocalDeleteImmediate(file.path);
+                void this.syncManager.handleLocalDeleteImmediate(file.path);
             }
         }));
 
@@ -114,13 +114,13 @@ export default class GDSyncPlugin extends Plugin {
                     window.clearTimeout(prev);
                     this.modifyDebounceTimers.delete(oldPath);
                 }
-                this.syncManager.handleRenameImmediate(file, oldPath);
+                void this.syncManager.handleRenameImmediate(file, oldPath);
             }
         }));
 
         this.registerEvent(this.app.vault.on("create", (file) => {
             if (file instanceof TFolder) {
-                this.syncManager.handleFolderCreateImmediate(file.path);
+                void this.syncManager.handleFolderCreateImmediate(file.path);
             }
         }));
 
@@ -134,8 +134,8 @@ export default class GDSyncPlugin extends Plugin {
 
             // 타겟 폴더가 설정되어 있고 인증 정보가 있는 경우에만 실행
             if (this.syncManager.state.getTargetFolderId() && this.refreshToken) {
-                console.log('[GD Sync] Startup sync triggered.');
-                await this.syncManager.syncDelta();
+                console.debug('[GD Sync] Startup sync triggered.');
+                void this.syncManager.syncDelta();
             }
         });
 
@@ -188,14 +188,15 @@ export default class GDSyncPlugin extends Plugin {
 
                             // 폴더 선택 직후 최초 전체 동기화 자동 시작
                             setTimeout(() => {
-                                this.syncManager.syncWholeVault();
+                                void this.syncManager.syncWholeVault();
                             }, 500);
                         }).open();
                     }, 300);
                 }
 
-            } catch (e: any) {
-                console.error("GD Sync OAuth error:", e);
+            } catch (err: unknown) {
+                const e = err as { message?: string };
+                console.error("GD Sync OAuth error:", err);
                 new Notice(t('OAUTH_FAIL') + (e.message || "Check console for details."));
             } finally {
                 this._isExchanging = false;
@@ -268,7 +269,7 @@ export default class GDSyncPlugin extends Plugin {
         const settingsCopy = { ...this.settings };
         // Make absolutely sure legacy key is gone
         if ('refreshToken' in settingsCopy) {
-            delete (settingsCopy as any).refreshToken;
+            delete (settingsCopy as Record<string, unknown>).refreshToken;
         }
 
         await this.saveData(settingsCopy);
@@ -285,7 +286,7 @@ export default class GDSyncPlugin extends Plugin {
         const intervalMs = (this.settings.backgroundSyncInterval || 5) * 60 * 1000;
         if (intervalMs > 0) {
             this.backgroundSyncIntervalId = window.setInterval(() => {
-                this.syncManager.syncDelta();
+                void this.syncManager.syncDelta();
             }, intervalMs);
             // 플러그인 종료 시 자동 정리를 위해 Obsidian의 registerInterval도 함께 호명
             this.registerInterval(this.backgroundSyncIntervalId);
@@ -307,7 +308,8 @@ export default class GDSyncPlugin extends Plugin {
      * 설정 탭 UI 동적 새로고침
      */
     refreshSettingsUI() {
-        const settingModal = (this.app as any).setting;
+        const appWithSetting = this.app as unknown as { setting?: { activeTab?: { id: string, display: () => void } } };
+        const settingModal = appWithSetting.setting;
         if (settingModal && settingModal.activeTab && settingModal.activeTab.id === this.manifest.id) {
             settingModal.activeTab.display();
         }
