@@ -129,7 +129,7 @@ export class FolderPickerModal extends Modal {
                         const finalPath = [...this.pathStack, { id: newFolderId, name: folderName }];
                         this.onSelect({ id: newFolderId, name: folderName }, finalPath);
                         this.close();
-                    } catch(e) {
+                    } catch {
                         new Notice(t('PICKER_NEW_FOLDER_FAILED'));
                     }
                 };

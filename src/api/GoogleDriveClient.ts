@@ -151,7 +151,8 @@ export class GoogleDriveClient {
                 folders = folders.concat(json.files || []);
                 pageToken = json.nextPageToken;
             } catch (err: unknown) {
-                throw new Error(`일반 폴더 조회 중 오류 (status: ${(err as any)?.status}): ${(err as any)?.message || (err as any)?.text || err}`);
+                const error = err as { status?: number, message?: string, text?: string };
+                throw new Error(`일반 폴더 조회 중 오류 (status: ${error?.status}): ${error?.message || error?.text || err}`);
             }
         } while (pageToken);
 
@@ -167,7 +168,7 @@ export class GoogleDriveClient {
                     const res = await requestUrl({ url, method: 'GET', headers });
                     const json = res.json as { files?: GoogleDriveFile[], nextPageToken?: string };
                 folders = folders.concat(json.files || []);
-                    sharedPageToken = res.json.nextPageToken;
+                    sharedPageToken = json.nextPageToken;
                 } catch (err: unknown) {
                     console.error("공유 폴더 조회 오류:", err);
                     break; // 공유 폴더 조회 실패 시 일반 폴더 리스트라도 반환하기 위해 중단만 함
@@ -175,7 +176,7 @@ export class GoogleDriveClient {
             } while (sharedPageToken);
             
             // id 기준 중복 폴더 제거
-            const uniqueFolders = new Map();
+            const uniqueFolders = new Map<string, GoogleDriveFile>();
             folders.forEach(f => uniqueFolders.set(f.id, f));
             folders = Array.from(uniqueFolders.values());
         }
@@ -292,7 +293,8 @@ export class GoogleDriveClient {
             headers: await this.getHeaders()
         });
         
-        const previousParents = fileInfoRes.json.parents?.join(',') || '';
+        const fileInfoJson = fileInfoRes.json as { parents?: string[] };
+        const previousParents = fileInfoJson.parents?.join(',') || '';
 
         const res = await requestUrl({
             url: `https://www.googleapis.com/drive/v3/files/${safeFileId}?addParents=${safeTarget}&removeParents=${previousParents}`,
@@ -350,7 +352,8 @@ export class GoogleDriveClient {
             headers: await this.getHeaders()
         });
         
-        const previousParents = fileInfoRes.json.parents?.join(',') || '';
+        const fileInfoJson = fileInfoRes.json as { parents?: string[] };
+        const previousParents = fileInfoJson.parents?.join(',') || '';
 
         return await this.updateFileMetadata(fileId, newName, [newParentId], previousParents ? previousParents.split(',') : [], modifiedTime);
     }

@@ -57,7 +57,7 @@ export class GoogleOAuthManager {
                 let json: any;
                 try {
                     json = response.json;
-                } catch (e) {
+                } catch {
                     new Notice("Auth Proxy Error: Server did not return JSON.");
                     throw new Error(`Auth Proxy Error: HTTP ${response.status}`);
                 }
@@ -142,7 +142,7 @@ export class GoogleOAuthManager {
         let json: any;
         try {
             json = response.json;
-        } catch (e) {
+        } catch {
             throw new Error(`Auth Proxy Error: HTTP ${response.status}`);
         }
 

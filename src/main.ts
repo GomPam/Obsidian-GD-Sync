@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, TFile, TFolder, setIcon, addIcon } from 'obsidian';
+import { Notice, Plugin, TFile, TFolder, setIcon, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, GDSyncSettings, GDSyncSettingTab } from "./settings";
 import { SyncManager } from "./sync/SyncManager";
 import { FolderPickerModal } from "./ui/FolderPickerModal";

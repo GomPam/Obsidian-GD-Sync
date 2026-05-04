@@ -1,4 +1,4 @@
-import { App, Notice, TFile } from 'obsidian';
+import { Notice, TFile } from 'obsidian';
 import { GoogleDriveClient } from '../api/GoogleDriveClient';
 import { SyncState, FileSyncData } from './SyncState';
 import { t } from '../lang/helpers';
@@ -682,7 +682,7 @@ export class SyncManager {
             // 2. 동기화 계획 수립 (Sync Plan)
             let uploadCount = 0;
             let downloadCount = 0;
-            let conflictCount = 0;
+            let _conflictCount = 0;
 
             const localFiles = this.plugin.app.vault.getFiles();
             const processedPaths = new Set<string>();
@@ -758,7 +758,7 @@ export class SyncManager {
                         uploadCount++;
                         downloadCount++;
                     }
-                    conflictCount++;
+                    _conflictCount++;
                 } else if (isLocalChanged) {
                     // 로컬만 변경됨 -> 업로드
                     this.plugin.updateSyncStatus(t("STATUS_UPLOADING", { name: localFile.name }));
@@ -1022,7 +1022,7 @@ export class SyncManager {
                     await this.plugin.app.vault.adapter.remove(folderPath);
                     count++;
                 }
-            } catch (e) {
+            } catch {
             }
         }
 
