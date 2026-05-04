@@ -16,7 +16,10 @@ Sync your Obsidian vault with Google Drive across desktop and mobile devices.
 - **Mobile Friendly**: Designed to work on both Desktop and Mobile (iOS/Android) versions of Obsidian.
 - **Secure**: Uses OAuth 2.0 with PKCE for secure authentication without exposing your credentials.
 - **Selective Sync**: Choose a specific folder in Google Drive to sync with your vault.
+- **Custom Extension Filter**: Sync default formats (md, images, pdf, etc.) and define your own custom extensions to sync.
+- **Empty Folder Sync**: Maintains perfect 1:1 folder structure between local and remote, even for empty directories.
 - **History**: View recent synchronization logs.
+- **Clean Disconnect**: Safely clear all sync cache, history, and settings when disconnecting the account.
 
 ## 🚀 Getting Started
 
