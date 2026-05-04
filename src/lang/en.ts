@@ -67,6 +67,9 @@ export default {
     SETTING_CUSTOM_EXTENSIONS_DESC: "Enter additional file extensions to sync, separated by commas (e.g., txt, csv, json).",
     SETTING_CUSTOM_EXTENSIONS_PLACEHOLDER: "Example: txt, csv, json",
 
+    SETTING_SYNC_EMPTY_FOLDERS: "Sync Empty Folders",
+    SETTING_SYNC_EMPTY_FOLDERS_DESC: "Eagerly sync all local folders to Google Drive, even if they contain no supported files. Disabling this drastically improves sync speed for large vaults with many ignored files (like .git, node_modules, etc.).",
+
     SETTING_DELAY: "Auto-Upload Delay",
     SETTING_DELAY_DESC: "Time to wait before automatically uploading modified notes to Google Drive.",
     SETTING_INTERVAL: "Background Sync Interval",

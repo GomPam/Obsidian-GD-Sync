@@ -69,6 +69,9 @@ const ko: typeof en = {
     SETTING_CUSTOM_EXTENSIONS_DESC: "기본 지원 포맷(md, png 등) 외에 추가로 동기화할 파일 확장자를 쉼표(,)로 구분하여 입력하세요. (예: txt, csv, json)",
     SETTING_CUSTOM_EXTENSIONS_PLACEHOLDER: "예: txt, csv, json",
 
+    SETTING_SYNC_EMPTY_FOLDERS: "모든 폴더 구조 동기화 (빈 폴더 포함)",
+    SETTING_SYNC_EMPTY_FOLDERS_DESC: "지원되는 파일이 없는 로컬 폴더(예: 빈 폴더, 숨김 폴더)라도 전부 Google Drive에 구조를 유지하도록 강제 생성합니다. 이를 비활성화(기본값)하면 지원되는 파일이 있는 폴더만 동기화되어 엄청난 성능 향상을 얻을 수 있습니다.",
+
     SETTING_DELAY: "자동 업로드 지연시간",
     SETTING_DELAY_DESC: "노트 수정 후 Google Drive 에 자동 업로드되기까지 기다리는 시간입니다.",
     SETTING_INTERVAL: "백그라운드 자동 동기화 주기",

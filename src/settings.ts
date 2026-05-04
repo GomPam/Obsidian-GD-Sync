@@ -14,6 +14,7 @@ export interface GDSyncSettings {
     conflictStrategy: 'manual' | 'keepLocal' | 'keepRemote' | 'keepBoth' | 'merge';
     trashAutoCleanupDays: number; // .trash 폴더 자동 삭제 기간 (일)
     customExtensions: string; // 사용자 지정 동기화 확장자 목록
+    syncEmptyFolders: boolean; // 빈 폴더 동기화 여부
 }
 
 export const DEFAULT_SETTINGS: GDSyncSettings = {
@@ -23,7 +24,8 @@ export const DEFAULT_SETTINGS: GDSyncSettings = {
     backgroundSyncInterval: 5, // 기본 5분
     conflictStrategy: 'manual',
     trashAutoCleanupDays: 0,
-    customExtensions: ''
+    customExtensions: '',
+    syncEmptyFolders: false
 }
 
 export class GDSyncSettingTab extends PluginSettingTab {
@@ -162,6 +164,16 @@ export class GDSyncSettingTab extends PluginSettingTab {
                         })();
                     });
                 });
+
+            new Setting(containerEl)
+                .setName(t('SETTING_SYNC_EMPTY_FOLDERS'))
+                .setDesc(t('SETTING_SYNC_EMPTY_FOLDERS_DESC'))
+                .addToggle(toggle => toggle
+                    .setValue(this.plugin.settings.syncEmptyFolders)
+                    .onChange(async (value) => {
+                        this.plugin.settings.syncEmptyFolders = value;
+                        await this.plugin.saveSettings();
+                    }));
 
             const delaySetting = new Setting(containerEl)
                 .setName(t('SETTING_DELAY'))

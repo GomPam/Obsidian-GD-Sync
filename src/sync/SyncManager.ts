@@ -813,10 +813,26 @@ export class SyncManager {
             }
 
             // 2.1b 로컬 폴더 동기화 (로컬의 빈 폴더도 원격에 반영되도록 보장)
-            // 깊이 순 정렬: 부모 폴더가 먼저 생성/캐시되어 자식 폴더 처리 시 캐시 히트 보장
             const allLocalFolders = this.plugin.app.vault.getAllLoadedFiles()
                 .filter((f): f is TFolder => f instanceof TFolder);
-            const newLocalFolders = allLocalFolders.filter(f => !f.isRoot() && !this.isIgnoredPath(f.path) && !remoteFoldersByPath.has(f.path));
+            
+            let newLocalFolders = allLocalFolders.filter(f => !f.isRoot() && !this.isIgnoredPath(f.path) && !remoteFoldersByPath.has(f.path));
+
+            if (!this.plugin.settings.syncEmptyFolders) {
+                // 지원되는 파일이 있는 폴더 경로만 추출
+                const validFolders = new Set<string>();
+                const allFiles = this.plugin.app.vault.getFiles();
+                for (const file of allFiles) {
+                    if (!this.isIgnoredPath(file.path) && this.isAllowedExtension(file.name)) {
+                        let parent = file.parent;
+                        while (parent && !parent.isRoot()) {
+                            validFolders.add(parent.path);
+                            parent = parent.parent;
+                        }
+                    }
+                }
+                newLocalFolders = newLocalFolders.filter(f => validFolders.has(f.path));
+            }
 
             if (newLocalFolders.length > 0) {
                 // 깊이별로 그룹화하여 같은 깊이의 폴더들을 병렬 처리
