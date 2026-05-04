@@ -748,9 +748,10 @@ export class SyncManager {
             const processedPaths = new Set<string>();
             const processedDriveIds = new Set<string>();
 
-            // 2.1 원격 폴더 동기화 (우선 처리)
+            // 2.1 원격 폴더 동기화 (우선 처리) + 캐시 워밍업
             for (const [remotePath, remoteFolder] of remoteFoldersByPath.entries()) {
                 this.state.setFolderId(remotePath, remoteFolder.id);
+                this.folderIdCache.set(remotePath, remoteFolder.id);
                 const existingLocal = this.plugin.app.vault.getAbstractFileByPath(remotePath);
                 if (!existingLocal) {
                     console.debug(`[GD Sync] Creating empty folder from remote: ${remotePath}`);
@@ -762,7 +763,7 @@ export class SyncManager {
             const allLocalFolders = this.plugin.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder);
             for (const folder of allLocalFolders) {
                 if (folder.isRoot() || this.isIgnoredPath(folder.path)) continue;
-                // getOrCreateDrivePath는 내부적으로 캐시 및 원격 존재 여부를 확인하므로 안전합니다.
+                if (remoteFoldersByPath.has(folder.path)) continue; // 이미 원격에 존재하고 캐시됨
                 await this.getOrCreateDrivePath(folder.path, true);
             }
 
