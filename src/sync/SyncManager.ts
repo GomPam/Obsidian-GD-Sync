@@ -10,6 +10,10 @@ export class SyncManager {
     private isSyncing: boolean = false;
     private folderIdCache: Map<string, string> = new Map();
     private errorCount: number = 0; // SEC-H01: Track continuous errors
+    
+    // Concurrency locks for folder creation
+    private remoteFolderLocks: Map<string, Promise<string>> = new Map();
+    private localFolderLocks: Map<string, Promise<void>> = new Map();
 
     constructor(private plugin: GDSyncPlugin) {
         this.driveClient = new GoogleDriveClient(plugin);
@@ -96,16 +100,30 @@ export class SyncManager {
                 continue;
             }
 
-            let foundId = await this.driveClient.findFolder(folderName, currentParentId);
-            if (!foundId) {
-                console.debug(`[GD Sync] Creating intermediate folder: ${currentPath}`);
-                foundId = await this.driveClient.createFolder(folderName, currentParentId);
+            if (this.remoteFolderLocks.has(currentPath)) {
+                currentParentId = await this.remoteFolderLocks.get(currentPath)!;
+                continue;
             }
 
-            // 폴더 ID 상태 저장 (삭제/이름변경 추적용)
-            this.state.setFolderId(currentPath, foundId);
-            this.folderIdCache.set(currentPath, foundId);
-            currentParentId = foundId;
+            const createPromise = (async () => {
+                let foundId = await this.driveClient.findFolder(folderName, currentParentId);
+                if (!foundId) {
+                    console.debug(`[GD Sync] Creating intermediate folder: ${currentPath}`);
+                    foundId = await this.driveClient.createFolder(folderName, currentParentId);
+                }
+                
+                // 폴더 ID 상태 저장 (삭제/이름변경 추적용)
+                this.state.setFolderId(currentPath, foundId);
+                this.folderIdCache.set(currentPath, foundId);
+                return foundId;
+            })();
+
+            this.remoteFolderLocks.set(currentPath, createPromise);
+            try {
+                currentParentId = await createPromise;
+            } finally {
+                this.remoteFolderLocks.delete(currentPath);
+            }
         }
 
         return currentParentId;
@@ -888,7 +906,30 @@ export class SyncManager {
         for (const p of folders) {
             currentLocalPath += (currentLocalPath ? '/' : '') + p;
             if (!this.plugin.app.vault.getAbstractFileByPath(currentLocalPath)) {
-                await this.plugin.app.vault.createFolder(currentLocalPath);
+                if (this.localFolderLocks.has(currentLocalPath)) {
+                    await this.localFolderLocks.get(currentLocalPath);
+                    continue;
+                }
+
+                const createPromise = (async () => {
+                    try {
+                        if (!this.plugin.app.vault.getAbstractFileByPath(currentLocalPath)) {
+                            await this.plugin.app.vault.createFolder(currentLocalPath);
+                        }
+                    } catch (err: unknown) {
+                        const e = err as { message?: string };
+                        if (e.message && !e.message.includes('already exists')) {
+                            throw err;
+                        }
+                    }
+                })();
+
+                this.localFolderLocks.set(currentLocalPath, createPromise);
+                try {
+                    await createPromise;
+                } finally {
+                    this.localFolderLocks.delete(currentLocalPath);
+                }
             }
         }
 
