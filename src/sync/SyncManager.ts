@@ -682,7 +682,6 @@ export class SyncManager {
             // 2. 동기화 계획 수립 (Sync Plan)
             let uploadCount = 0;
             let downloadCount = 0;
-            let _conflictCount = 0;
 
             const localFiles = this.plugin.app.vault.getFiles();
             const processedPaths = new Set<string>();
@@ -758,7 +757,6 @@ export class SyncManager {
                         uploadCount++;
                         downloadCount++;
                     }
-                    _conflictCount++;
                 } else if (isLocalChanged) {
                     // 로컬만 변경됨 -> 업로드
                     this.plugin.updateSyncStatus(t("STATUS_UPLOADING", { name: localFile.name }));

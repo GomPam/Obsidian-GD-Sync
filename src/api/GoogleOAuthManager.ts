@@ -54,12 +54,12 @@ export class GoogleOAuthManager {
                     throw: false
                 });
 
-                let json: any;
+                let json: { error?: string, error_description?: string, refresh_token?: string, access_token?: string, expires_in?: number };
                 try {
-                    json = response.json;
+                    json = response.json as any;
                 } catch {
-                    new Notice("Auth Proxy Error: Server did not return JSON.");
-                    throw new Error(`Auth Proxy Error: HTTP ${response.status}`);
+                    new Notice("Auth proxy error: Server did not return JSON.");
+                    throw new Error(`Auth proxy error: HTTP ${response.status}`);
                 }
 
                 if (response.status !== 200 || json.error) {
@@ -139,11 +139,11 @@ export class GoogleOAuthManager {
             throw: false
         });
 
-        let json: any;
+        let json: { error?: string, error_description?: string, refresh_token?: string, access_token?: string, expires_in?: number };
         try {
-            json = response.json;
+            json = response.json as any;
         } catch {
-            throw new Error(`Auth Proxy Error: HTTP ${response.status}`);
+            throw new Error(`Auth proxy error: HTTP ${response.status}`);
         }
 
         if (response.status !== 200 || json.error) {

@@ -152,7 +152,7 @@ export class GoogleDriveClient {
                 pageToken = json.nextPageToken;
             } catch (err: unknown) {
                 const error = err as { status?: number, message?: string, text?: string };
-                throw new Error(`일반 폴더 조회 중 오류 (status: ${error?.status}): ${error?.message || error?.text || err}`);
+                throw new Error(`일반 폴더 조회 중 오류 (status: ${error?.status}): ${error?.message || error?.text || String(err)}`);
             }
         } while (pageToken);
 
