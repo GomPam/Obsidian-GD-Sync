@@ -1,4 +1,4 @@
-import { Notice, TFile, TAbstractFile } from 'obsidian';
+import { Notice, TFile, TFolder, TAbstractFile } from 'obsidian';
 import { GoogleDriveClient, GoogleDriveFile } from '../api/GoogleDriveClient';
 import { SyncState, FileSyncData } from './SyncState';
 import { t } from '../lang/helpers';
@@ -756,6 +756,14 @@ export class SyncManager {
                     console.debug(`[GD Sync] Creating empty folder from remote: ${remotePath}`);
                     await this.plugin.app.vault.createFolder(remotePath);
                 }
+            }
+
+            // 2.1b 로컬 폴더 동기화 (로컬의 빈 폴더도 원격에 반영되도록 보장)
+            const allLocalFolders = this.plugin.app.vault.getAllLoadedFiles().filter((f): f is TFolder => f instanceof TFolder);
+            for (const folder of allLocalFolders) {
+                if (folder.isRoot() || this.isIgnoredPath(folder.path)) continue;
+                // getOrCreateDrivePath는 내부적으로 캐시 및 원격 존재 여부를 확인하므로 안전합니다.
+                await this.getOrCreateDrivePath(folder.path, true);
             }
 
             // 2.2 파일 동기화 계획 실행
