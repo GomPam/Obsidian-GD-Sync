@@ -1,0 +1,33 @@
+# IDEs & Editors
+.vscode/
+.idea/
+*.iml
+
+# Node.js
+node_modules/
+npm-debug.log*
+.npmrc
+
+# Build output
+# The compiled main.js should be excluded from the source repo.
+# It should be uploaded to GitHub releases instead.
+main.js
+*.map
+
+# Obsidian & Local Data
+data.json
+.gd-sync.db
+
+# Private & Sensitive Data (SEC-C01)
+# refreshToken and other credentials stored in separate files
+.auth-token
+
+# Temporary / AI logs
+AGENTS.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development
+src/internal/
