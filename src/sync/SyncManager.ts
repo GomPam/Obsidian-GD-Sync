@@ -22,9 +22,20 @@ export class SyncManager {
 
     private recentlyDownloaded: Set<string> = new Set();
     private foldersReady: boolean = false;
+    public customExtsCache: Set<string> = new Set();
+
+    public updateCustomExtensionsCache() {
+        const extList = (this.plugin.settings.customExtensions || '')
+            .split(',')
+            .map(s => s.trim().toLowerCase().replace(/^\./, ''))
+            .filter(s => s.length > 0);
+        this.customExtsCache = new Set(extList);
+    }
 
     async initialize() {
         await this.state.load();
+
+        this.updateCustomExtensionsCache();
 
         // 폴더 캐시 워밍업 (API 절약)
         const folders = this.state.getAllFolders();
@@ -135,6 +146,19 @@ export class SyncManager {
             || filePath === this.plugin.app.vault.configDir || filePath.startsWith(this.plugin.app.vault.configDir + '/');
     }
 
+    // 파일 확장자 필터링 (기본 지원 포맷 + 사용자 지정 포맷)
+    public isAllowedExtension(filename: string): boolean {
+        const defaultExtensions = ['md', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'mp3', 'webm', 'wav', 'm4a', 'ogg', '3gp', 'flac', 'mp4', 'ogv', 'mov', 'mkv', 'pdf', 'canvas'];
+        
+        const extMatch = filename.match(/\.([^.]+)$/);
+        if (!extMatch || !extMatch[1]) return false; // 확장자가 없는 파일은 동기화 제외
+        const ext = extMatch[1].toLowerCase();
+        
+        if (defaultExtensions.includes(ext)) return true;
+        
+        return this.customExtsCache.has(ext);
+    }
+
     // 파일 확장자기반 MIME 반환 (V2-M02)
     private getMimeType(filename: string): string {
         const ext = filename.split('.').pop()?.toLowerCase();
@@ -152,7 +176,7 @@ export class SyncManager {
 
     // 로컬 단일 파일 업로드 (즉시 동기화 트리거용)
     async uploadFileImmediate(file: TFile, isFromFullSync: boolean = false, retryCount: number = 0) {
-        if (this.isIgnoredPath(file.path)) return;
+        if (this.isIgnoredPath(file.path) || !this.isAllowedExtension(file.name)) return;
         if (this.recentlyDownloaded.has(file.path)) return;
 
         // If already syncing, and this isn't part of the current sync process, queue it.
@@ -305,6 +329,12 @@ export class SyncManager {
         // 1. 파일인 경우 처리
         let fileData = this.state.getFileData(oldPath);
         if (fileData) {
+            if (!this.isAllowedExtension(file.name)) {
+                // 확장자가 지원되지 않는 포맷으로 변경된 경우 원격에서 삭제
+                await this.handleLocalDeleteImmediate(oldPath, retryCount);
+                return;
+            }
+
             try {
                 const newParentFolderId = await this.getOrCreateDrivePath(file.path);
                 await this.driveClient.renameAndMove(fileData.driveId, file.name, newParentFolderId);
@@ -316,6 +346,10 @@ export class SyncManager {
                 this.state.addToLocalQueue({ action: 'rename', path: file.path, oldPath, _retryCount: retryCount + 1 });
                 await this.state.save();
             }
+            return;
+        } else if (file instanceof TFile && this.isAllowedExtension(file.name)) {
+            // 이전에 동기화되지 않던 파일이 동기화 대상 확장자로 변경된 경우 업로드 처리
+            await this.uploadFileImmediate(file, false, retryCount);
             return;
         }
 
@@ -551,12 +585,14 @@ export class SyncManager {
                 if (this.isIgnoredPath(localPath)) continue;
 
                 if (isFolder) {
-                    this.state.setFolderId(localPath, file.id);
-                    if (!this.plugin.app.vault.getAbstractFileByPath(localPath)) {
-                        await this.plugin.app.vault.createFolder(localPath);
-                    }
-                    continue;
-                }
+            this.state.setFolderId(localPath, file.id);
+            if (!this.plugin.app.vault.getAbstractFileByPath(localPath)) {
+                await this.plugin.app.vault.createFolder(localPath);
+            }
+            continue;
+        }
+
+        if (!file.name || !this.isAllowedExtension(file.name)) continue;
 
                 const localFile = this.plugin.app.vault.getAbstractFileByPath(localPath);
                 const localMtime = (localFile instanceof TFile) ? localFile.stat.mtime : 0;
@@ -697,6 +733,9 @@ export class SyncManager {
                     remoteFoldersByPath.set(localPath, f);
                     continue;
                 }
+
+                if (!f.name || !this.isAllowedExtension(f.name)) continue;
+                
                 if (f.mimeType && f.mimeType.startsWith('application/vnd.google-apps.')) continue;
                 remoteFilesByPath.set(localPath, f);
             }
@@ -726,7 +765,7 @@ export class SyncManager {
             for (const localFile of localFiles) {
                 currentIdx++;
                 const path = localFile.path;
-                if (this.isIgnoredPath(path)) continue;
+                if (this.isIgnoredPath(path) || !this.isAllowedExtension(localFile.name)) continue;
                 processedPaths.add(path);
 
                 this.plugin.updateSyncStatus(t("STATUS_CHECKING", { current: currentIdx, total: totalLocal }));

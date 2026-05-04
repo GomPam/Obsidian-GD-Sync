@@ -61,6 +61,10 @@ export default {
     SETTING_HISTORY_DESC: "View recently synced files and history.",
     SETTING_BTN_VIEW_HISTORY: "View History",
 
+    SETTING_CUSTOM_EXTENSIONS: "Custom Sync Extensions",
+    SETTING_CUSTOM_EXTENSIONS_DESC: "Enter additional file extensions to sync, separated by commas (e.g., txt, csv, json).",
+    SETTING_CUSTOM_EXTENSIONS_PLACEHOLDER: "Example: txt, csv, json",
+
     SETTING_DELAY: "Auto-Upload Delay",
     SETTING_DELAY_DESC: "Time to wait before automatically uploading modified notes to Google Drive.",
     SETTING_INTERVAL: "Background Sync Interval",

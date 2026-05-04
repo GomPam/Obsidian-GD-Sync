@@ -13,6 +13,7 @@ export interface GDSyncSettings {
     backgroundSyncInterval: number; // 백그라운드 동기화 주기 (분)
     conflictStrategy: 'manual' | 'keepLocal' | 'keepRemote' | 'keepBoth' | 'merge';
     trashAutoCleanupDays: number; // .trash 폴더 자동 삭제 기간 (일)
+    customExtensions: string; // 사용자 지정 동기화 확장자 목록
 }
 
 export const DEFAULT_SETTINGS: GDSyncSettings = {
@@ -21,7 +22,8 @@ export const DEFAULT_SETTINGS: GDSyncSettings = {
     autoSyncDelay: 5000, // 기본값을 5초로 변경 (너무 짧으면 타이핑 중 동기화 시도 가능성 높음)
     backgroundSyncInterval: 5, // 기본 5분
     conflictStrategy: 'manual',
-    trashAutoCleanupDays: 0
+    trashAutoCleanupDays: 0,
+    customExtensions: ''
 }
 
 export class GDSyncSettingTab extends PluginSettingTab {
@@ -113,6 +115,42 @@ export class GDSyncSettingTab extends PluginSettingTab {
                         new SyncHistoryModal(this.app, this.plugin).open();
                     }));
 
+            new Setting(containerEl)
+                .setName(t('SETTING_CUSTOM_EXTENSIONS'))
+                .setDesc(t('SETTING_CUSTOM_EXTENSIONS_DESC'))
+                .addText(text => {
+                    text.setPlaceholder(t('SETTING_CUSTOM_EXTENSIONS_PLACEHOLDER'))
+                        .setValue(this.plugin.settings.customExtensions);
+                        
+                    text.inputEl.addEventListener('blur', () => {
+                        void (async () => {
+                            const normalized = text.getValue()
+                                .split(',')
+                                .map(s => s.trim().toLowerCase().replace(/^\./, ''))
+                                .filter(s => s.length > 0)
+                                .join(', ');
+                            
+                            text.setValue(normalized);
+                            this.plugin.settings.customExtensions = normalized;
+                            await this.plugin.saveSettings();
+                            this.plugin.syncManager.updateCustomExtensionsCache();
+                        })();
+                    });
+
+                    text.onChange((value) => {
+                        void (async () => {
+                            const normalized = value
+                                .split(',')
+                                .map(s => s.trim().toLowerCase().replace(/^\./, ''))
+                                .filter(s => s.length > 0)
+                                .join(', ');
+                                
+                            this.plugin.settings.customExtensions = normalized;
+                            await this.plugin.saveSettings();
+                            this.plugin.syncManager.updateCustomExtensionsCache();
+                        })();
+                    });
+                });
 
             const delaySetting = new Setting(containerEl)
                 .setName(t('SETTING_DELAY'))

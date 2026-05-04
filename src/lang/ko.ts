@@ -63,6 +63,10 @@ const ko: typeof en = {
     SETTING_HISTORY_DESC: "최근 동기화된 파일 목록과 내역을 확인합니다.",
     SETTING_BTN_VIEW_HISTORY: "내역 보기",
 
+    SETTING_CUSTOM_EXTENSIONS: "사용자 지정 확장자 동기화",
+    SETTING_CUSTOM_EXTENSIONS_DESC: "기본 지원 포맷(md, png 등) 외에 추가로 동기화할 파일 확장자를 쉼표(,)로 구분하여 입력하세요. (예: txt, csv, json)",
+    SETTING_CUSTOM_EXTENSIONS_PLACEHOLDER: "예: txt, csv, json",
+
     SETTING_DELAY: "자동 업로드 지연시간",
     SETTING_DELAY_DESC: "노트 수정 후 Google Drive 에 자동 업로드되기까지 기다리는 시간입니다.",
     SETTING_INTERVAL: "백그라운드 자동 동기화 주기",
