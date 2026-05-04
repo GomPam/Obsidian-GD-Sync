@@ -57,3 +57,72 @@
     width: auto !important;
     min-width: 0 !important;
 }
+
+.gd-sync-nav-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 8px;
+    background-color: var(--background-secondary);
+    border-radius: 5px;
+}
+
+.gd-sync-nav-crumb {
+    cursor: pointer;
+}
+
+.gd-sync-nav-crumb-active {
+    font-weight: bold;
+    color: var(--text-normal);
+}
+
+.gd-sync-nav-crumb-inactive {
+    color: var(--text-accent);
+}
+
+.gd-sync-nav-separator {
+    margin: 0 5px;
+}
+
+.gd-sync-full-width-btn {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.gd-sync-folder-list {
+    max-height: 50vh;
+    min-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    padding: 10px;
+    border-radius: 5px;
+    background-color: var(--background-primary);
+}
+
+.gd-sync-folder-item {
+    padding: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.gd-sync-folder-item:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.gd-sync-folder-name {
+    cursor: pointer;
+    flex-grow: 1;
+}
+
+.gd-sync-text-error {
+    color: var(--text-error);
+}
+
+.gd-sync-error-pre {
+    white-space: pre-wrap;
+    font-size: 0.9em;
+    margin-top: 5px;
+}

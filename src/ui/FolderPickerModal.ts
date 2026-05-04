@@ -42,8 +42,9 @@ export class FolderPickerModal extends Modal {
             // GoogleDriveClient를 통해 폴더 목록 조회 (SEC-M03 fixed, driveClient is now public)
             const client = this.plugin.syncManager.driveClient;
             this.folders = await client.listFolders(this.currentParentId);
-        } catch (e: any) {
-            console.error("Folder load failed:", e);
+        } catch (err: unknown) {
+            const e = err as { message?: string };
+            console.error("Folder load failed:", err);
             this.errorMessage = e.message || 'Unknown error';
             new Notice(t('PICKER_LOAD_FAILED', { error: this.errorMessage }));
         } finally {
@@ -59,23 +60,18 @@ export class FolderPickerModal extends Modal {
         contentEl.createEl('h2', { text: t('PICKER_TITLE') });
 
         const pathStr = this.pathStack.map(p => p.id === 'root' ? t('FOLDER_ROOT') : p.name).join(' > ');
-        contentEl.createEl('div', { text: t('SETTING_TARGET_CURRENT', { path: pathStr }) as string, cls: 'gd-sync-modal-path' });
+        contentEl.createEl('div', { text: t('SETTING_TARGET_CURRENT', { path: pathStr }), cls: 'gd-sync-modal-path' });
 
         // ─── Breadcrumbs (상단 경로 내비게이션 추가) ───
         const navContainer = contentEl.createDiv({ cls: 'gd-sync-nav-container' });
-        navContainer.style.display = 'flex';
-        navContainer.style.flexWrap = 'wrap';
-        navContainer.style.alignItems = 'center';
-        navContainer.style.marginBottom = '10px';
-        navContainer.style.padding = '8px';
-        navContainer.style.backgroundColor = 'var(--background-secondary)';
-        navContainer.style.borderRadius = '5px';
 
         this.pathStack.forEach((crumb, index) => {
-            const crumbEl = navContainer.createSpan({ text: crumb.name });
-            crumbEl.style.cursor = 'pointer';
-            crumbEl.style.fontWeight = index === this.pathStack.length - 1 ? 'bold' : 'normal';
-            crumbEl.style.color = index === this.pathStack.length - 1 ? 'var(--text-normal)' : 'var(--text-accent)';
+            const crumbEl = navContainer.createSpan({ text: crumb.name, cls: 'gd-sync-nav-crumb' });
+            if (index === this.pathStack.length - 1) {
+                crumbEl.addClass('gd-sync-nav-crumb-active');
+            } else {
+                crumbEl.addClass('gd-sync-nav-crumb-inactive');
+            }
             
             crumbEl.onclick = async () => {
                 if (index < this.pathStack.length - 1) {
@@ -86,7 +82,7 @@ export class FolderPickerModal extends Modal {
             };
 
             if (index < this.pathStack.length - 1) {
-                navContainer.createSpan({ text: ' > ' }).style.margin = '0 5px';
+                navContainer.createSpan({ text: ' > ', cls: 'gd-sync-nav-separator' });
             }
         });
 
@@ -94,12 +90,10 @@ export class FolderPickerModal extends Modal {
         const currentFolderName = this.pathStack[this.pathStack.length - 1]!.name;
         const selectCurrentBtn = contentEl.createEl('button', { 
             text: t('PICKER_CURRENT_TARGET', { name: currentFolderName }), 
-            cls: 'mod-cta' 
+            cls: 'mod-cta gd-sync-full-width-btn' 
         });
-        selectCurrentBtn.style.width = '100%';
-        selectCurrentBtn.style.marginBottom = '15px';
         selectCurrentBtn.onclick = () => {
-            this.onSelect({ 
+            void this.onSelect({ 
                 id: this.currentParentId, 
                 name: this.pathStack[this.pathStack.length - 1]!.name 
             }, [...this.pathStack]);
@@ -127,10 +121,12 @@ export class FolderPickerModal extends Modal {
                         new Notice(t('PICKER_NEW_FOLDER_CREATING'));
                         const newFolderId = await client.createFolder(folderName, this.currentParentId);
                         const finalPath = [...this.pathStack, { id: newFolderId, name: folderName }];
-                        this.onSelect({ id: newFolderId, name: folderName }, finalPath);
+                        void this.onSelect({ id: newFolderId, name: folderName }, finalPath);
                         this.close();
-                    } catch {
-                        new Notice(t('PICKER_NEW_FOLDER_FAILED'));
+                    } catch (err: unknown) {
+                        const e = err as { message?: string };
+                        console.error("New folder creation failed:", err);
+                        new Notice(t('PICKER_NEW_FOLDER_FAILED') + (e.message ? `: ${e.message}` : ''));
                     }
                 };
             });
@@ -144,19 +140,11 @@ export class FolderPickerModal extends Modal {
         }
 
         const listContainer = contentEl.createDiv({ cls: 'gd-sync-folder-list' });
-        listContainer.style.maxHeight = '50vh'; // 화면 높이 대비 비율로 제한하여 무조건 스크롤되도록 함
-        listContainer.style.minHeight = '200px';
-        listContainer.style.overflowY = 'auto';
-        listContainer.style.border = '1px solid var(--background-modifier-border)';
-        listContainer.style.padding = '10px';
-        listContainer.style.borderRadius = '5px';
-        listContainer.style.backgroundColor = 'var(--background-primary)';
 
         if (this.errorMessage) {
-            const errorDiv = listContainer.createDiv();
-            errorDiv.style.color = 'var(--text-error)';
+            const errorDiv = listContainer.createDiv({ cls: 'gd-sync-text-error' });
             errorDiv.createEl('strong', { text: t('PICKER_ERROR') });
-            errorDiv.createEl('p', { text: this.errorMessage, attr: { style: 'white-space: pre-wrap; font-size: 0.9em; margin-top: 5px;' } });
+            errorDiv.createEl('p', { text: this.errorMessage, cls: 'gd-sync-error-pre' });
             return;
         }
 
@@ -165,16 +153,9 @@ export class FolderPickerModal extends Modal {
         } else {
             for (const folder of this.folders) {
                 const item = listContainer.createDiv({ cls: 'gd-sync-folder-item' });
-                item.style.padding = '8px';
-                item.style.display = 'flex';
-                item.style.justifyContent = 'space-between';
-                item.style.alignItems = 'center';
-                item.style.borderBottom = '1px solid var(--background-modifier-border)';
                 
                 // 1. 왼쪽: 폴더 이름 (더블클릭 또는 클릭하여 진입)
-                const nameContainer = item.createDiv();
-                nameContainer.style.cursor = 'pointer';
-                nameContainer.style.flexGrow = '1';
+                const nameContainer = item.createDiv({ cls: 'gd-sync-folder-name' });
                 const icon = folder.shared ? '👥' : '📁';
                 nameContainer.createSpan({ text: `${icon} ${folder.name}` });
 
@@ -186,16 +167,11 @@ export class FolderPickerModal extends Modal {
                 // 2. 오른쪽: 바로 선택 버튼
                 const pickBtn = item.createEl('button', { text: t('PICKER_BUTTON_SELECT') });
                 pickBtn.onclick = () => {
-                    this.onSelect(folder, [...this.pathStack, { id: folder.id, name: folder.name }]);
+                    void this.onSelect(folder, [...this.pathStack, { id: folder.id, name: folder.name }]);
                     this.close();
                 };
 
-                item.onmouseover = () => {
-                    item.style.backgroundColor = 'var(--background-modifier-hover)';
-                };
-                item.onmouseout = () => {
-                    item.style.backgroundColor = 'transparent';
-                };
+                // item.onmouseover/mouseout removed because replaced by :hover CSS rule
             }
         }
     }
