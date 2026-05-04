@@ -17,9 +17,9 @@ export class DiffUtils {
         }
 
         // DP 초기화
-        const dp: Int32Array[] = new Array(n + 1);
+        const dp: Int32Array[] = [];
         for (let i = 0; i <= n; i++) {
-            dp[i] = new Int32Array(m + 1);
+            dp.push(new Int32Array(m + 1));
         }
 
         // LCS DP 테이블 채우기
