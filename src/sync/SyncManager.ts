@@ -666,9 +666,17 @@ export class SyncManager {
             const parentId = current.parents[0]!;
             if (parentId === targetRootId) return pathParts.join('/');
 
-            // 폴더 캐시 확인
+            // folderIdCache 확인 (가장 빠름)
+            for (const [path, id] of this.folderIdCache.entries()) {
+                if (id === parentId) {
+                    return path + '/' + pathParts.join('/');
+                }
+            }
+
+            // SyncState 폴더 캐시 확인
             const cachedPath = Object.keys(this.state.getAllFolders()).find(k => this.state.getFolderId(k) === parentId);
             if (cachedPath) {
+                this.folderIdCache.set(cachedPath, parentId); // 메모리 캐시에도 저장
                 return cachedPath + '/' + pathParts.join('/');
             }
 
@@ -677,6 +685,18 @@ export class SyncManager {
             if (!parentFile || parentFile.trashed) return null;
             current = parentFile;
             pathParts.unshift(current.name);
+        }
+        // 루프 완료 후 전체 경로가 확정된 경우, 중간 폴더들을 캐시에 저장
+        const resolvedPath = pathParts.join('/');
+        const segments = resolvedPath.split('/');
+        // 마지막 세그먼트(파일명)를 제외한 폴더 경로들을 캐시에 저장하려면
+        // 부모 ID가 필요하므로, 최소한 file 자체의 부모는 저장
+        if (file.parents && file.parents[0] && file.parents[0] !== targetRootId) {
+            const parentPath = segments.slice(0, -1).join('/');
+            if (parentPath) {
+                this.folderIdCache.set(parentPath, file.parents[0]);
+                this.state.setFolderId(parentPath, file.parents[0]);
+            }
         }
         return null;
     }
