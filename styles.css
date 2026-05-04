@@ -39,3 +39,21 @@
     display: block;
     margin-top: 2px;
 }
+
+.gd-sync-status-icon {
+    margin-right: 5px;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+
+.gd-sync-setting-spacer {
+    margin-left: 10px;
+    min-width: 40px;
+}
+
+.gd-sync-tooltip-reset {
+    white-space: nowrap !important;
+    width: auto !important;
+    min-width: 0 !important;
+}

@@ -330,10 +330,7 @@ export default class GDSyncPlugin extends Plugin {
             this.statusBarEl.empty();
             const iconSpan = this.statusBarEl.createSpan();
             setIcon(iconSpan, 'google-drive');
-            iconSpan.style.marginRight = '5px';
-            iconSpan.style.display = 'inline-flex';
-            iconSpan.style.alignItems = 'center';
-            iconSpan.style.verticalAlign = 'middle';
+            iconSpan.addClass('gd-sync-status-icon');
 
             this.statusBarEl.createSpan({ text: message });
         }

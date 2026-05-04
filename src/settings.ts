@@ -37,7 +37,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         // ─── Header ───────────────────────────────────────────────
-        containerEl.createEl('h2', { text: t('SETTING_TITLE') });
+        new Setting(containerEl).setName(t('SETTING_TITLE')).setHeading();
 
         // ─── Connection Status ────────────────────────────────────
         const isConnected = !!this.plugin.refreshToken;
@@ -102,7 +102,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                         }).open();
                     }));
 
-            containerEl.createEl('h3', { text: t('SETTING_ADVANCED') });
+            new Setting(containerEl).setName(t('SETTING_ADVANCED')).setHeading();
 
             new Setting(containerEl)
                 .setName(t('SETTING_HISTORY'))
@@ -122,8 +122,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 text: `${this.plugin.settings.autoSyncDelay / 1000}초`,
                 cls: 'gd-sync-delay-value'
             });
-            delayValueSpan.style.marginLeft = '10px';
-            delayValueSpan.style.minWidth = '40px';
+            delayValueSpan.addClass('gd-sync-setting-spacer');
 
             delaySetting.addSlider(slider => {
                 slider
@@ -151,8 +150,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 text: `${this.plugin.settings.backgroundSyncInterval}분`,
                 cls: 'gd-sync-delay-value'
             });
-            intervalValueSpan.style.marginLeft = '10px';
-            intervalValueSpan.style.minWidth = '40px';
+            intervalValueSpan.addClass('gd-sync-setting-spacer');
 
             intervalSetting.addSlider(slider => {
                 slider
@@ -197,8 +195,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 text: this.plugin.settings.trashAutoCleanupDays === 0 ? t('SETTING_TRASH_CLEANUP_DISABLED') : t('SETTING_TRASH_CLEANUP_DAYS', { count: this.plugin.settings.trashAutoCleanupDays.toString() }),
                 cls: 'gd-sync-delay-value'
             });
-            trashValueSpan.style.marginLeft = '10px';
-            trashValueSpan.style.minWidth = '40px';
+            trashValueSpan.addClass('gd-sync-setting-spacer');
 
             trashSetting.addSlider(slider => {
                 // 가상 매핑: UI 0 -> 0, UI 1 -> 30, UI 2 -> 29, ..., UI 30 -> 1
@@ -238,9 +235,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                                 t.firstChild.textContent = labelValue;
 
                                 // 너비가 고정되지 않고 콘텐츠에 맞게 줄어들도록 스타일 강제 초기화
-                                t.style.whiteSpace = 'nowrap';
-                                t.style.width = 'auto';
-                                t.style.minWidth = '0';
+                                t.addClass('gd-sync-tooltip-reset');
                             }
                         });
                     });
