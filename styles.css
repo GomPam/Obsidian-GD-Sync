@@ -1,0 +1,41 @@
+.gd-sync-spin svg {
+    animation: gd-sync-rotate 1.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes gd-sync-rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.gd-sync-conflict-desc {
+    font-weight: bold;
+    color: var(--text-accent);
+}
+
+.gd-sync-conflict-info {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: var(--background-secondary);
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.gd-sync-history-item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.gd-sync-history-item:last-child {
+    border-bottom: none;
+}
+
+.gd-sync-history-date {
+    color: var(--text-muted);
+    display: block;
+    margin-top: 2px;
+}
