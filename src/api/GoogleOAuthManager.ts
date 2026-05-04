@@ -76,8 +76,8 @@ export class GoogleOAuthManager {
                     await this.plugin.saveSettings();
                 }
 
-                this._accessToken = json.access_token;
-                this._tokenExpiresAt = Date.now() + (json.expires_in * 1000);
+                this._accessToken = json.access_token || null;
+                this._tokenExpiresAt = Date.now() + ((json.expires_in || 3600) * 1000);
 
                 return this._accessToken!;
             } finally {
