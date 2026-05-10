@@ -28,6 +28,7 @@ export class SyncManager {
     // Concurrency locks for folder creation
     private remoteFolderLocks: Map<string, Promise<string>> = new Map();
     private localFolderLocks: Map<string, Promise<void>> = new Map();
+    private resolvedRootId: string | null = null;
 
     constructor(private plugin: GDSyncPlugin) {
         this.driveClient = new GoogleDriveClient(plugin);
@@ -57,6 +58,24 @@ export class SyncManager {
             this.folderIdCache.set(path, id);
         }
         this.plugin.updateSyncStatus(t("STATUS_READY"));
+    }
+
+    private async getTargetFolderIdResolved(): Promise<string> {
+        let targetId = this.state.getTargetFolderId()!;
+        if (targetId === 'root') {
+            if (this.resolvedRootId) {
+                targetId = this.resolvedRootId;
+            } else {
+                const rootFile = await this.driveClient.getFile('root');
+                if (rootFile) {
+                    targetId = rootFile.id;
+                    this.resolvedRootId = targetId;
+                    this.state.setTargetFolderId(targetId);
+                    await this.state.save();
+                }
+            }
+        }
+        return targetId;
     }
 
     // 동기화에 필요한 최상위 타겟 폴더와 휴지통 폴더 준비
@@ -104,7 +123,8 @@ export class SyncManager {
     // 로컬 상대 경로를 기반으로 구글 드라이브 내 폴더 생성/추적
     // skipFind: true일 때 findFolder 생략하고 바로 createFolder (원격에 없는 것이 확실한 경우)
     private async getOrCreateDrivePath(targetPath: string, isFolder: boolean = false, skipFind: boolean = false): Promise<string> {
-        const targetRootId = this.state.getTargetFolderId()!;
+        const targetRootId = await this.getTargetFolderIdResolved();
+
         const parts = targetPath.split('/');
 
         if (!isFolder) {
@@ -508,7 +528,7 @@ export class SyncManager {
 
             console.debug(`[GD Sync] Detected ${changes.length} remote changes.`);
 
-            const targetFolderId = this.state.getTargetFolderId()!;
+            const targetFolderId = await this.getTargetFolderIdResolved();
 
             for (const change of changes) {
                 const file = change.file;
@@ -688,13 +708,21 @@ export class SyncManager {
     }
 
     private async resolveRemotePath(file: GoogleDriveFile, targetRootId: string): Promise<string | null> {
+        let actualTargetRootId = targetRootId;
+        if (actualTargetRootId === 'root') {
+            actualTargetRootId = await this.getTargetFolderIdResolved();
+        }
+
         let current = file;
         const pathParts: string[] = [current.name];
 
         while (current.parents && current.parents.length > 0) {
-            const parentId = current.parents[0]!;
-            if (parentId === targetRootId) return pathParts.join('/');
+            // Check all parents
+            const hasTargetParent = current.parents.some(id => id === actualTargetRootId);
+            if (hasTargetParent) return pathParts.join('/');
 
+            const parentId = current.parents[0]!;
+            
             // folderIdCache 확인 (가장 빠름)
             for (const [path, id] of this.folderIdCache.entries()) {
                 if (id === parentId) {
@@ -715,18 +743,8 @@ export class SyncManager {
             current = parentFile;
             pathParts.unshift(current.name);
         }
-        // 루프 완료 후 전체 경로가 확정된 경우, 중간 폴더들을 캐시에 저장
-        const resolvedPath = pathParts.join('/');
-        const segments = resolvedPath.split('/');
-        // 마지막 세그먼트(파일명)를 제외한 폴더 경로들을 캐시에 저장하려면
-        // 부모 ID가 필요하므로, 최소한 file 자체의 부모는 저장
-        if (file.parents && file.parents[0] && file.parents[0] !== targetRootId) {
-            const parentPath = segments.slice(0, -1).join('/');
-            if (parentPath) {
-                this.folderIdCache.set(parentPath, file.parents[0]);
-                this.state.setFolderId(parentPath, file.parents[0]);
-            }
-        }
+        
+        // If we reached the end of parent chain without hitting actualTargetRootId, it's not in the sync folder
         return null;
     }
 
@@ -763,7 +781,7 @@ export class SyncManager {
 
             await this.processLocalQueue();
 
-            const targetFolderId = this.state.getTargetFolderId()!;
+            const targetFolderId = await this.getTargetFolderIdResolved();
 
             // 1. 구글 드라이브 내 전체 트리 구조 스캔
             this.plugin.updateSyncStatus(t("STATUS_LISTING"));
@@ -1025,16 +1043,21 @@ export class SyncManager {
         if (!current) return null;
         let pathParts: string[] = [current.name];
 
+        let foundTarget = false;
         while (current.parents && current.parents.length > 0) {
-            const parentId = current.parents[0]!;
-            if (parentId === targetRootId) {
+            // targetRootId가 parents에 포함되어 있는지 확인
+            if (current.parents.some(id => id === targetRootId)) {
+                foundTarget = true;
                 break;
             }
+            
+            const parentId = current.parents[0]!;
             current = remoteMap.get(parentId);
-            if (!current) return null;
+            if (!current) break;
             pathParts.unshift(current.name);
         }
-        return pathParts.join('/');
+        
+        return foundTarget ? pathParts.join('/') : null;
     }
 
     // 개별 파일 다운로드 로직 분리
