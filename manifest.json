@@ -1,7 +1,7 @@
 {
 	"id": "gd-sync",
 	"name": "GD Sync",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"minAppVersion": "0.15.0",
 	"description": "Sync Obsidian vault with Google Drive across desktop and mobile.",
 	"author": "GomPam",
