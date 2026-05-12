@@ -678,8 +678,8 @@ export class SyncManager {
             await this.state.save();
 
             const msg = (uploadCount > 0 || downloadCount > 0)
-                ? `Synced (${uploadCount} up, ${downloadCount} down)`
-                : `Up to date (${new Date().toLocaleTimeString()})`;
+                ? t("STATUS_SYNCED", { up: uploadCount, down: downloadCount })
+                : t("STATUS_UP_TO_DATE", { time: new Date().toLocaleTimeString() });
 
             new Notice(t("NOTICE_SYNC_COMPLETE", { result: msg }));
             this.plugin.updateSyncStatus(msg);
@@ -693,6 +693,7 @@ export class SyncManager {
                 new Notice(t("NOTICE_DELTA_ERROR_RETRY"));
             } else {
                 new Notice(t("NOTICE_DELTA_ERROR"));
+                this.isSyncing = false;
                 await this.syncWholeVault();
             }
         } finally {
@@ -701,7 +702,7 @@ export class SyncManager {
 
             // 에러 발생 등으로 상태가 멈춰있는 경우에만 Idle로 복구
             const currentStatus = this.plugin.statusBarEl.getText();
-            if (currentStatus.includes('Scanning...') || currentStatus.includes('Delta Sync...')) {
+            if (currentStatus.includes(t("STATUS_SCANNING")) || currentStatus.includes(t("STATUS_DELTA_SYNC"))) {
                 this.plugin.updateSyncStatus(t("STATUS_LAST_SYNC", { time: new Date().toLocaleTimeString() }));
             }
         }
@@ -985,7 +986,7 @@ export class SyncManager {
             await this.state.save();
 
             if (uploadCount > 0 || downloadCount > 0) {
-                const msg = `Synced (${uploadCount} up, ${downloadCount} down)`;
+                const msg = t("STATUS_SYNCED", { up: uploadCount, down: downloadCount });
                 new Notice(t("NOTICE_SYNC_COMPLETE", { result: msg }));
                 this.plugin.updateSyncStatus(msg);
             } else {
