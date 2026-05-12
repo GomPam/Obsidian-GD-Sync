@@ -129,6 +129,19 @@ export class GDSyncSettingTab extends PluginSettingTab {
                     }));
 
             new Setting(containerEl)
+                .setName(t('SETTING_RESET_INDEX'))
+                .setDesc(t('SETTING_RESET_INDEX_DESC'))
+                .addButton(btn => btn
+                    .setButtonText(t('SETTING_BTN_RESET_INDEX'))
+                    .setWarning()
+                    .onClick(async () => {
+                        await this.plugin.syncManager.state.clearAll();
+                        await this.plugin.syncManager.initialize();
+                        new Notice(t('NOTICE_CACHE_RESET'));
+                        void this.plugin.syncManager.syncWholeVault();
+                    }));
+
+            new Setting(containerEl)
                 .setName(t('SETTING_CUSTOM_EXTENSIONS'))
                 .setDesc(t('SETTING_CUSTOM_EXTENSIONS_DESC'))
                 .addText(text => {

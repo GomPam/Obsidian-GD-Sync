@@ -3,6 +3,7 @@ import en from './en';
 const ko: typeof en = {
     COMMAND_FORCE_SYNC: "강제 전체 동기화 실행 (Force Full Sync)",
     COMMAND_VIEW_HISTORY: "동기화 히스토리 보기 (View Sync History)",
+    COMMAND_RESET_CACHE: "동기화 캐시 초기화 (DB 인덱스 삭제)",
     RIBBON_TOOLTIP: "Google Drive 와 동기화",
     FOLDER_ROOT: "📂 최상위",
 
@@ -24,6 +25,7 @@ const ko: typeof en = {
     NOTICE_ERROR: "GD Sync 오류: {msg}",
     NOTICE_DELTA_ERROR_RETRY: "Delta Sync 연속 오류가 발생하여 백그라운드 동기화를 중단합니다. 수동으로 전체 동기화를 실행해주세요.",
     NOTICE_DELTA_ERROR: "Delta Sync 오류. 전체 동기화를 시도합니다.",
+    NOTICE_CACHE_RESET: "동기화 캐시가 초기화되었습니다. 깨끗한 상태로 동기화를 다시 시작합니다.",
     NOTICE_LARGE_FILE: "파일이 너무 큽니다 ({size}MB): {name}. 베타 버전에서는 10MB 이상의 업로드를 아직 지원하지 않습니다. 일단 건너뜁니다.",
 
     STATUS_INITIALIZING: "초기화 중...",
@@ -64,6 +66,10 @@ const ko: typeof en = {
     SETTING_HISTORY: "동기화 기록",
     SETTING_HISTORY_DESC: "최근 동기화된 파일 목록과 내역을 확인합니다.",
     SETTING_BTN_VIEW_HISTORY: "내역 보기",
+
+    SETTING_RESET_INDEX: "동기화 인덱스 초기화",
+    SETTING_RESET_INDEX_DESC: "로컬 동기화 기록(인덱스)을 삭제하고 모든 파일을 처음부터 다시 대조합니다. 경로가 꼬이거나 폴더가 중복 생성되는 문제가 있을 때 사용하세요.",
+    SETTING_BTN_RESET_INDEX: "인덱스 초기화",
 
     SETTING_CUSTOM_EXTENSIONS: "사용자 지정 확장자 동기화",
     SETTING_CUSTOM_EXTENSIONS_DESC: "기본 지원 포맷(md, png 등) 외에 추가로 동기화할 파일 확장자를 쉼표(,)로 구분하여 입력하세요. (예: txt, csv, json)",

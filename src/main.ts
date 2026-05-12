@@ -64,6 +64,19 @@ export default class GDSyncPlugin extends Plugin {
             }
         });
 
+        this.addCommand({
+            id: 'reset-sync-cache',
+            name: t('COMMAND_RESET_CACHE'),
+            callback: async () => {
+                if (this.syncManager) {
+                    await this.syncManager.state.clearAll();
+                    await this.syncManager.initialize();
+                    new Notice(t('NOTICE_CACHE_RESET'));
+                    void this.syncManager.syncWholeVault();
+                }
+            }
+        });
+
         // ─── 즉시 동기화 트리거 (이벤트 후킹) ──────────────────────
 
         const triggerDebounce = (file: TFile) => {

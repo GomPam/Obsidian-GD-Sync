@@ -1,6 +1,7 @@
 export default {
     COMMAND_FORCE_SYNC: "Force Full Sync",
     COMMAND_VIEW_HISTORY: "View Sync History",
+    COMMAND_RESET_CACHE: "Reset Sync Cache (Delete index)",
     RIBBON_TOOLTIP: "Sync with Google Drive",
     FOLDER_ROOT: "📂 Root",
 
@@ -22,6 +23,7 @@ export default {
     NOTICE_ERROR: "GD Sync Error: {msg}",
     NOTICE_DELTA_ERROR_RETRY: "Delta sync encountered 3 consecutive errors. Aborting background sync. Please run Full Sync manually.",
     NOTICE_DELTA_ERROR: "Delta sync error. Attempting Full Sync.",
+    NOTICE_CACHE_RESET: "Sync cache has been reset. Starting clean sync...",
     NOTICE_LARGE_FILE: "File too large ({size}MB): {name}. Resumable upload is not yet supported in Beta. Skipping for now.",
 
     STATUS_INITIALIZING: "Initializing...",
@@ -62,6 +64,10 @@ export default {
     SETTING_HISTORY: "Sync History",
     SETTING_HISTORY_DESC: "View recently synced files and history.",
     SETTING_BTN_VIEW_HISTORY: "View History",
+
+    SETTING_RESET_INDEX: "Reset Sync Index",
+    SETTING_RESET_INDEX_DESC: "Delete local sync index (DB) and re-match all files from scratch. Use this if you have path duplication issues or unexpected folder creation.",
+    SETTING_BTN_RESET_INDEX: "Reset Index",
 
     SETTING_CUSTOM_EXTENSIONS: "Custom Sync Extensions",
     SETTING_CUSTOM_EXTENSIONS_DESC: "Enter additional file extensions to sync, separated by commas (e.g., txt, csv, json).",
