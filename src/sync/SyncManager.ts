@@ -1075,7 +1075,7 @@ export class SyncManager {
 
         this.recentlyDownloaded.add(localPath);
         // Ping-pong 방지: autoSyncDelay 보다 길게 설정 (기본 5초 + 설정된 여유 버퍼)
-        const delay = (this.plugin.settings.autoSyncDelay || 5000) + (this.plugin.settings.postDownloadGuardBuffer || 2000);
+        const delay = this.plugin.settings.autoSyncDelay + this.plugin.settings.postDownloadGuardBuffer;
         setTimeout(() => this.recentlyDownloaded.delete(localPath), delay);
 
         const binaryContent = await this.driveClient.downloadFile(remoteFile.id, true) as ArrayBuffer;

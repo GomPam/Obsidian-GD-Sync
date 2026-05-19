@@ -83,7 +83,7 @@ export default class GDSyncPlugin extends Plugin {
             const prev = this.modifyDebounceTimers.get(file.path);
             if (prev) window.clearTimeout(prev);
 
-            const delay = this.settings.autoSyncDelay || DEFAULT_SETTINGS.autoSyncDelay;
+            const delay = this.settings.autoSyncDelay;
 
             const timer = window.setTimeout(() => {
                 this.modifyDebounceTimers.delete(file.path);
