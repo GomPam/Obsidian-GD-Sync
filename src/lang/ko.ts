@@ -117,6 +117,9 @@ const ko: typeof en = {
     SETTING_TRASH_CLEANUP_DISABLED: "끔",
     SETTING_TRASH_CLEANUP_DAYS: "{count}일",
 
+    FORMAT_SECONDS: "{value}초",
+    FORMAT_MINUTES: "{value}분",
+
     HISTORY_TITLE: "동기화 기록 (최근 100건)",
     HISTORY_EMPTY: "최근 동기화 기록이 없습니다.",
     HISTORY_ACTION_UPLOAD: "업로드",

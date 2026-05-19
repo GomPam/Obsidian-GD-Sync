@@ -115,6 +115,9 @@ export default {
     SETTING_TRASH_CLEANUP_DISABLED: "Off",
     SETTING_TRASH_CLEANUP_DAYS: "{count} days",
 
+    FORMAT_SECONDS: "{value} sec",
+    FORMAT_MINUTES: "{value} min",
+
     HISTORY_TITLE: "Sync History (Recent 100)",
     HISTORY_EMPTY: "No recent sync history found.",
     HISTORY_ACTION_UPLOAD: "UPLOAD",

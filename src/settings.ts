@@ -67,13 +67,13 @@ export class GDSyncSettingTab extends PluginSettingTab {
                         this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS);
                         this.plugin.refreshToken = '';
                         await this.plugin.saveSettings();
-                        
+
                         // 2. 인증 토큰 해제
                         this.plugin.googleOAuthManager.clearTokens();
-                        
+
                         // 3. 로컬 동기화 데이터베이스(SyncState) 초기화
                         await this.plugin.syncManager.state.clearAll();
-                        
+
                         // 4. 확장자 필터 캐시 초기화
                         this.plugin.syncManager.updateCustomExtensionsCache();
 
@@ -149,7 +149,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 .addText(text => {
                     text.setPlaceholder(t('SETTING_CUSTOM_EXTENSIONS_PLACEHOLDER'))
                         .setValue(this.plugin.settings.customExtensions);
-                        
+
                     text.inputEl.addEventListener('blur', () => {
                         void (async () => {
                             const normalized = text.getValue()
@@ -157,7 +157,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                                 .map(s => s.trim().toLowerCase().replace(/^\./, ''))
                                 .filter(s => s.length > 0)
                                 .join(', ');
-                            
+
                             text.setValue(normalized);
                             this.plugin.settings.customExtensions = normalized;
                             await this.plugin.saveSettings();
@@ -172,7 +172,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                                 .map(s => s.trim().toLowerCase().replace(/^\./, ''))
                                 .filter(s => s.length > 0)
                                 .join(', ');
-                                
+
                             this.plugin.settings.customExtensions = normalized;
                             await this.plugin.saveSettings();
                             this.plugin.syncManager.updateCustomExtensionsCache();
@@ -195,26 +195,26 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 .setDesc(t('SETTING_DELAY_DESC'));
 
             const delayValueSpan = delaySetting.controlEl.createEl('span', {
-                text: `${this.plugin.settings.autoSyncDelay / 1000}초`,
+                text: t('FORMAT_SECONDS', { value: (this.plugin.settings.autoSyncDelay / 1000).toString() }),
                 cls: 'gd-sync-delay-value'
             });
             delayValueSpan.addClass('gd-sync-setting-spacer');
 
             delaySetting.addSlider(slider => {
                 slider
-                    .setLimits(1, 10, 1)
+                    .setLimits(3, 10, 1)
                     .setValue(this.plugin.settings.autoSyncDelay / 1000)
                     .setDynamicTooltip()
                     .onChange(async (value) => {
                         this.plugin.settings.autoSyncDelay = value * 1000;
-                        delayValueSpan.setText(`${value}초`);
+                        delayValueSpan.setText(t('FORMAT_SECONDS', { value: value.toString() }));
                         await this.plugin.saveSettings();
                     });
 
                 // 드래그 중 실시간 업데이트를 위해 input 이벤트 직접 바인딩
                 slider.sliderEl.addEventListener('input', (ev) => {
                     const value = (ev.target as HTMLInputElement).value;
-                    delayValueSpan.setText(`${value}초`);
+                    delayValueSpan.setText(t('FORMAT_SECONDS', { value }));
                 });
             });
 
@@ -223,7 +223,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 .setDesc(t('SETTING_GUARD_BUFFER_DESC'));
 
             const guardBufferValueSpan = guardBufferSetting.controlEl.createEl('span', {
-                text: `${this.plugin.settings.postDownloadGuardBuffer / 1000}초`,
+                text: t('FORMAT_SECONDS', { value: (this.plugin.settings.postDownloadGuardBuffer / 1000).toString() }),
                 cls: 'gd-sync-delay-value'
             });
             guardBufferValueSpan.addClass('gd-sync-setting-spacer');
@@ -235,13 +235,13 @@ export class GDSyncSettingTab extends PluginSettingTab {
                     .setDynamicTooltip()
                     .onChange(async (value) => {
                         this.plugin.settings.postDownloadGuardBuffer = value * 1000;
-                        guardBufferValueSpan.setText(`${value}초`);
+                        guardBufferValueSpan.setText(t('FORMAT_SECONDS', { value: value.toString() }));
                         await this.plugin.saveSettings();
                     });
 
                 slider.sliderEl.addEventListener('input', (ev) => {
                     const value = (ev.target as HTMLInputElement).value;
-                    guardBufferValueSpan.setText(`${value}초`);
+                    guardBufferValueSpan.setText(t('FORMAT_SECONDS', { value }));
                 });
             });
 
@@ -250,26 +250,26 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 .setDesc(t('SETTING_INTERVAL_DESC'));
 
             const intervalValueSpan = intervalSetting.controlEl.createEl('span', {
-                text: `${this.plugin.settings.backgroundSyncInterval}분`,
+                text: t('FORMAT_MINUTES', { value: this.plugin.settings.backgroundSyncInterval.toString() }),
                 cls: 'gd-sync-delay-value'
             });
             intervalValueSpan.addClass('gd-sync-setting-spacer');
 
             intervalSetting.addSlider(slider => {
                 slider
-                    .setLimits(1, 60, 1) // 1분 ~ 60분
+                    .setLimits(3, 60, 1) // 3분 ~ 60분
                     .setValue(this.plugin.settings.backgroundSyncInterval)
                     .setDynamicTooltip()
                     .onChange(async (value) => {
                         this.plugin.settings.backgroundSyncInterval = value;
-                        intervalValueSpan.setText(`${value}분`);
+                        intervalValueSpan.setText(t('FORMAT_MINUTES', { value: value.toString() }));
                         await this.plugin.saveSettings();
                         this.plugin.registerBackgroundSync(); // 스케줄러 재등록
                     });
 
                 slider.sliderEl.addEventListener('input', (ev) => {
                     const value = (ev.target as HTMLInputElement).value;
-                    intervalValueSpan.setText(`${value}분`);
+                    intervalValueSpan.setText(t('FORMAT_MINUTES', { value }));
                 });
             });
 
