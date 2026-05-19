@@ -21,8 +21,8 @@ export interface GDSyncSettings {
 export const DEFAULT_SETTINGS: GDSyncSettings = {
     syncFolderName: 'GD_Sync',
     syncFolderPath: [{ id: 'root', name: 'root' }],
-    autoSyncDelay: 5000, // 기본값을 5초로 변경 (너무 짧으면 타이핑 중 동기화 시도 가능성 높음)
-    backgroundSyncInterval: 5, // 기본 5분
+    autoSyncDelay: 5000, // 너무 짧으면 타이핑 중 동기화 시도 가능성 높음
+    backgroundSyncInterval: 5,
     conflictStrategy: 'manual',
     trashAutoCleanupDays: 0,
     customExtensions: '',
