@@ -103,6 +103,11 @@ export default class GDSyncPlugin extends Plugin {
         // 파일 보존 이벤트 감지 (옵시디언의 자동 저장 등으로 디스크 기록 시 타이머 리셋)
         this.registerEvent(this.app.vault.on("modify", (file) => {
             if (file instanceof TFile) {
+                // SEC-M08: 모바일 스크롤 등 내용 변경 없는 허위 modify 이벤트 시 타이머 시작 스킵
+                const data = this.syncManager?.state?.getFileData(file.path);
+                if (data && file.stat.mtime <= data.lastSyncTime) {
+                    return;
+                }
                 triggerDebounce(file);
             }
         }));

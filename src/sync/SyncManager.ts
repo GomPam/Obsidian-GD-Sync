@@ -217,6 +217,14 @@ export class SyncManager {
         if (this.isIgnoredPath(file.path) || !this.isAllowedExtension(file.name)) return;
         if (this.recentlyDownloaded.has(file.path)) return;
 
+        // SEC-M07: 방어적 mtime 비교 (모바일 스크롤 자동저장으로 인한 불필요한 업로드 방지)
+        if (!isFromFullSync) {
+            const existingData = this.state.getFileData(file.path);
+            if (existingData && file.stat.mtime <= existingData.lastSyncTime) {
+                return;
+            }
+        }
+
         // If already syncing, and this isn't part of the current sync process, queue it.
         if (this.isSyncing && !isFromFullSync) {
             this.state.addToLocalQueue({ action: 'upload', path: file.path, _retryCount: retryCount });
@@ -1066,7 +1074,9 @@ export class SyncManager {
         console.debug(`[GD Sync] Downloading: ${localPath}`);
 
         this.recentlyDownloaded.add(localPath);
-        setTimeout(() => this.recentlyDownloaded.delete(localPath), 3000);
+        // Ping-pong 방지: autoSyncDelay 보다 길게 설정 (기본 5초 + 2초 여유 버퍼)
+        const delay = (this.plugin.settings.autoSyncDelay || 5000) + 2000;
+        setTimeout(() => this.recentlyDownloaded.delete(localPath), delay);
 
         const binaryContent = await this.driveClient.downloadFile(remoteFile.id, true) as ArrayBuffer;
 
