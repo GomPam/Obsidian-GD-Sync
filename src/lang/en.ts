@@ -78,6 +78,8 @@ export default {
 
     SETTING_DELAY: "Auto-Upload Delay",
     SETTING_DELAY_DESC: "Time to wait before automatically uploading modified notes to Google Drive.",
+    SETTING_GUARD_BUFFER: "Post-Download Upload Guard Buffer",
+    SETTING_GUARD_BUFFER_DESC: "Additional buffer time added to the auto-upload delay to ignore local auto-save events (ping-pong) triggered immediately after downloading.",
     SETTING_INTERVAL: "Background Sync Interval",
     SETTING_INTERVAL_DESC: "Interval for scanning the entire vault to sync remote changes.",
 

@@ -15,6 +15,7 @@ export interface GDSyncSettings {
     trashAutoCleanupDays: number; // .trash 폴더 자동 삭제 기간 (일)
     customExtensions: string; // 사용자 지정 동기화 확장자 목록
     syncEmptyFolders: boolean; // 빈 폴더 동기화 여부
+    postDownloadGuardBuffer: number; // 다운로드 후 재업로드 방지 버퍼 (ms)
 }
 
 export const DEFAULT_SETTINGS: GDSyncSettings = {
@@ -25,7 +26,8 @@ export const DEFAULT_SETTINGS: GDSyncSettings = {
     conflictStrategy: 'manual',
     trashAutoCleanupDays: 0,
     customExtensions: '',
-    syncEmptyFolders: false
+    syncEmptyFolders: false,
+    postDownloadGuardBuffer: 2000
 }
 
 export class GDSyncSettingTab extends PluginSettingTab {
@@ -213,6 +215,33 @@ export class GDSyncSettingTab extends PluginSettingTab {
                 slider.sliderEl.addEventListener('input', (ev) => {
                     const value = (ev.target as HTMLInputElement).value;
                     delayValueSpan.setText(`${value}초`);
+                });
+            });
+
+            const guardBufferSetting = new Setting(containerEl)
+                .setName(t('SETTING_GUARD_BUFFER'))
+                .setDesc(t('SETTING_GUARD_BUFFER_DESC'));
+
+            const guardBufferValueSpan = guardBufferSetting.controlEl.createEl('span', {
+                text: `${this.plugin.settings.postDownloadGuardBuffer / 1000}초`,
+                cls: 'gd-sync-delay-value'
+            });
+            guardBufferValueSpan.addClass('gd-sync-setting-spacer');
+
+            guardBufferSetting.addSlider(slider => {
+                slider
+                    .setLimits(1, 10, 1)
+                    .setValue(this.plugin.settings.postDownloadGuardBuffer / 1000)
+                    .setDynamicTooltip()
+                    .onChange(async (value) => {
+                        this.plugin.settings.postDownloadGuardBuffer = value * 1000;
+                        guardBufferValueSpan.setText(`${value}초`);
+                        await this.plugin.saveSettings();
+                    });
+
+                slider.sliderEl.addEventListener('input', (ev) => {
+                    const value = (ev.target as HTMLInputElement).value;
+                    guardBufferValueSpan.setText(`${value}초`);
                 });
             });
 

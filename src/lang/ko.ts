@@ -80,6 +80,8 @@ const ko: typeof en = {
 
     SETTING_DELAY: "자동 업로드 지연시간",
     SETTING_DELAY_DESC: "노트 수정 후 Google Drive 에 자동 업로드되기까지 기다리는 시간입니다.",
+    SETTING_GUARD_BUFFER: "다운로드 후 업로드 방지 버퍼",
+    SETTING_GUARD_BUFFER_DESC: "다운로드 직후 발생하는 로컬 자동저장 이벤트(핑퐁)를 무시하기 위해, 자동 업로드 지연시간에 추가로 대기하는 버퍼 시간입니다.",
     SETTING_INTERVAL: "백그라운드 자동 동기화 주기",
     SETTING_INTERVAL_DESC: "일정 시간마다 전체 보관함을 스캔하여 변경된 항목들을 Google Drive 와 동기화합니다.",
 
