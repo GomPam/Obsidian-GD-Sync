@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, TFolder, setIcon, addIcon } from 'obsidian';
+import { Notice, Platform, Plugin, TFile, TFolder, setIcon, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, GDSyncSettings, GDSyncSettingTab } from "./settings";
 import { SyncManager } from "./sync/SyncManager";
 import { FolderPickerModal } from "./ui/FolderPickerModal";
@@ -95,6 +95,8 @@ export default class GDSyncPlugin extends Plugin {
 
         // 실제 타이핑 이벤트 감지 (에디터 내 텍스트 변화가 있을 때마다 타이머 리셋)
         this.registerEvent(this.app.workspace.on('editor-change', (editor, info) => {
+            if (Platform.isMobile) return;
+
             if (info && info.file instanceof TFile) {
                 triggerDebounce(info.file);
             }
