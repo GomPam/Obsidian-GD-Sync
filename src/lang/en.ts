@@ -12,6 +12,8 @@ export default {
 
     NOTICE_FOLDER_SELECTED: "'{folder}' folder has been set as the sync target.",
     NOTICE_SETUP_FAILED: "Google Drive folder setup failed.",
+    NOTICE_TARGET_REQUIRED: "Select a Google Drive sync folder before syncing.",
+    NOTICE_TARGET_VERIFY_FAILED: "The saved sync folder could not be verified. Reconnect Google Drive or select the sync folder again.",
     NOTICE_UPLOAD_COMPLETE: "Upload complete: {name}",
     NOTICE_DELETE_FILE: "Moved to Drive Trash (File): {name}",
     NOTICE_DELETE_FOLDER: "Moved to Drive Trash (Folder): {name}",

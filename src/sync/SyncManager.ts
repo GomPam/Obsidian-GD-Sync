@@ -96,7 +96,6 @@ export class SyncManager {
         if (this.foldersReady) return true;
 
         try {
-            const folderName = this.plugin.settings.syncFolderName || 'GD_Sync';
             let targetId = this.state.getTargetFolderId();
 
             // 1. 최상위 백업 폴더 준비
@@ -110,14 +109,14 @@ export class SyncManager {
             }
 
             if (!targetId) {
-                // 구글 드라이브 루트(root)에서 이름으로 검색
-                let foundId = await this.driveClient.findFolder(folderName, 'root');
-                if (!foundId) {
-                    console.debug(`[GD Sync] Creating target folder: ${folderName}`);
-                    foundId = await this.driveClient.createFolder(folderName, 'root');
-                }
-                targetId = foundId;
-                this.state.setTargetFolderId(targetId);
+                new Notice(t("NOTICE_TARGET_REQUIRED"));
+                return false;
+            }
+
+            const targetFolder = await this.driveClient.getFile(targetId);
+            if (!targetFolder || targetFolder.trashed) {
+                new Notice(t("NOTICE_TARGET_VERIFY_FAILED"));
+                return false;
             }
 
             // 2. 휴지통 폴더 준비

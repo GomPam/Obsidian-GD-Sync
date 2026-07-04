@@ -14,6 +14,8 @@ const ko: typeof en = {
 
     NOTICE_FOLDER_SELECTED: "'{folder}' 폴더가 동기화 대상으로 지정되었습니다.",
     NOTICE_SETUP_FAILED: "Google Drive 폴더 셋업에 실패했습니다.",
+    NOTICE_TARGET_REQUIRED: "동기화 전에 Google Drive 동기화 폴더를 선택하세요.",
+    NOTICE_TARGET_VERIFY_FAILED: "저장된 동기화 폴더를 확인할 수 없습니다. Google Drive에 다시 연결하거나 동기화 폴더를 다시 선택하세요.",
     NOTICE_UPLOAD_COMPLETE: "업로드 완료: {name}",
     NOTICE_DELETE_FILE: "클라우드 휴지통으로 이동(파일): {name}",
     NOTICE_DELETE_FOLDER: "클라우드 휴지통으로 이동(폴더): {name}",
