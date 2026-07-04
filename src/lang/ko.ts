@@ -11,6 +11,10 @@ const ko: typeof en = {
     OAUTH_TICKET_RECEIVED: "보안 티켓을 수신했습니다. 토큰 환전 중...",
     OAUTH_FAIL: "인증 실패: ",
     OAUTH_ERROR: "Google OAuth 에러: ",
+    AUTH_REQUIRED_TITLE: "Google Drive 다시 연결",
+    AUTH_REQUIRED_DESC: "Google Drive 인증이 만료되어 동기화를 계속할 수 없습니다. 다시 연결해 동기화를 재개하세요.",
+    AUTH_REQUIRED_RECONNECT: "다시 연결",
+    AUTH_REQUIRED_LATER: "나중에",
 
     NOTICE_FOLDER_SELECTED: "'{folder}' 폴더가 동기화 대상으로 지정되었습니다.",
     NOTICE_SETUP_FAILED: "Google Drive 폴더 셋업에 실패했습니다.",

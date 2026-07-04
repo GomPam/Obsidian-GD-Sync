@@ -4,6 +4,7 @@ import { SyncManager } from "./sync/SyncManager";
 import { FolderPickerModal } from "./ui/FolderPickerModal";
 import { GoogleOAuthManager } from "./api/GoogleOAuthManager";
 import { SyncHistoryModal } from "./ui/SyncHistoryModal";
+import { AuthRequiredModal } from "./ui/AuthRequiredModal";
 import { t } from "./lang/helpers";
 import googleDriveIcon from "./assets/google-drive.svg";
 
@@ -15,6 +16,7 @@ export default class GDSyncPlugin extends Plugin {
 
     // 토큰 교환 중복 실행 방지 플래그 (유저의 딥링크 광클 방어)
     private _isExchanging: boolean = false;
+    private _isAuthRequiredModalOpen: boolean = false;
     private backgroundSyncIntervalId: number | null = null;
 
     private ribbonIconEl: HTMLElement;
@@ -328,6 +330,21 @@ export default class GDSyncPlugin extends Plugin {
 
     async startOAuthFlow() {
         return await this.googleOAuthManager.startOAuthFlow();
+    }
+
+    async handleAuthExpired() {
+        this.refreshToken = '';
+        await this.saveSettings();
+        this.googleOAuthManager.clearTokens();
+        this.updateSyncStatus(t('AUTH_REQUIRED_TITLE'));
+        this.refreshSettingsUI();
+
+        if (this._isAuthRequiredModalOpen) return;
+
+        this._isAuthRequiredModalOpen = true;
+        new AuthRequiredModal(this.app, this, () => {
+            this._isAuthRequiredModalOpen = false;
+        }).open();
     }
 
     /**

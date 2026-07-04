@@ -9,6 +9,10 @@ export default {
     OAUTH_TICKET_RECEIVED: "Security ticket received. Exchanging for token...",
     OAUTH_FAIL: "Authentication failed: ",
     OAUTH_ERROR: "Google OAuth Error: ",
+    AUTH_REQUIRED_TITLE: "Reconnect Google Drive",
+    AUTH_REQUIRED_DESC: "Google Drive authorization has expired. Reconnect to resume syncing.",
+    AUTH_REQUIRED_RECONNECT: "Reconnect",
+    AUTH_REQUIRED_LATER: "Later",
 
     NOTICE_FOLDER_SELECTED: "'{folder}' folder has been set as the sync target.",
     NOTICE_SETUP_FAILED: "Google Drive folder setup failed.",

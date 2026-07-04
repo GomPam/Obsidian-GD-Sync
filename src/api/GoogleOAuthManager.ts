@@ -31,6 +31,7 @@ export class GoogleOAuthManager {
 
         // 2. refresh_token이 없으면 연결이 안 된 상태
         if (!this.plugin.refreshToken) {
+            await this.plugin.handleAuthExpired();
             throw new Error("Google Drive에 연결되어 있지 않습니다. 설정에서 연결해 주세요.");
         }
 
@@ -64,8 +65,7 @@ export class GoogleOAuthManager {
 
                 if (response.status !== 200 || json.error) {
                     if (response.status === 400 || response.status === 401) {
-                        this.plugin.refreshToken = '';
-                        await this.plugin.saveSettings();
+                        await this.plugin.handleAuthExpired();
                         throw new Error("인증이 만료되었습니다. 설정에서 다시 연결해 주세요.");
                     }
                     throw new Error(json.error_description || json.error || `HTTP ${response.status}`);
@@ -167,6 +167,7 @@ export class GoogleOAuthManager {
     clearTokens() {
         this._accessToken = null;
         this._tokenExpiresAt = 0;
+        this._refreshPromise = null;
     }
 
     private generateRandomString(length: number) {
