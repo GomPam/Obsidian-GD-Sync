@@ -78,6 +78,19 @@ export class SyncManager {
         return targetId;
     }
 
+    private getSavedTargetFolderId(): string | null {
+        const savedPath = this.plugin.settings.syncFolderPath || [];
+        const lastPathEntry = savedPath[savedPath.length - 1];
+        if (!lastPathEntry?.id) return null;
+
+        // DEFAULT_SETTINGS uses path root with syncFolderName GD_Sync. That is not an explicit root selection.
+        if (lastPathEntry.id === 'root' && this.plugin.settings.syncFolderName !== lastPathEntry.name) {
+            return null;
+        }
+
+        return lastPathEntry.id;
+    }
+
     // 동기화에 필요한 최상위 타겟 폴더와 휴지통 폴더 준비
     private async prepareFolders(): Promise<boolean> {
         if (this.foldersReady) return true;
@@ -87,6 +100,15 @@ export class SyncManager {
             let targetId = this.state.getTargetFolderId();
 
             // 1. 최상위 백업 폴더 준비
+            if (!targetId) {
+                const savedTargetId = this.getSavedTargetFolderId();
+                if (savedTargetId) {
+                    console.debug(`[GD Sync] Restoring target folder from saved path: ${savedTargetId}`);
+                    targetId = savedTargetId;
+                    this.state.setTargetFolderId(targetId);
+                }
+            }
+
             if (!targetId) {
                 // 구글 드라이브 루트(root)에서 이름으로 검색
                 let foundId = await this.driveClient.findFolder(folderName, 'root');
