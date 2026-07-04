@@ -184,6 +184,52 @@ export class SyncManager {
             || filePath === this.plugin.app.vault.configDir || filePath.startsWith(this.plugin.app.vault.configDir + '/');
     }
 
+    private async ensureLocalFolder(folderPath: string): Promise<void> {
+        if (!folderPath || folderPath === '/') return;
+
+        const existing = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+        if (existing instanceof TFolder) return;
+        if (existing instanceof TFile) {
+            throw new Error(`Cannot create folder because a file already exists at ${folderPath}`);
+        }
+
+        if (this.localFolderLocks.has(folderPath)) {
+            await this.localFolderLocks.get(folderPath);
+            return this.ensureLocalFolder(folderPath);
+        }
+
+        const createPromise = (async () => {
+            const parts = folderPath.split('/');
+            parts.pop();
+            await this.ensureLocalFolder(parts.join('/'));
+
+            const current = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+            if (current instanceof TFolder) return;
+            if (current instanceof TFile) {
+                throw new Error(`Cannot create folder because a file already exists at ${folderPath}`);
+            }
+
+            try {
+                await this.plugin.app.vault.createFolder(folderPath);
+            } catch (err) {
+                const afterCreate = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+                if (afterCreate instanceof TFolder) return;
+
+                const stat = await this.plugin.app.vault.adapter.stat(folderPath).catch(() => null);
+                if (stat?.type === 'folder') return;
+
+                throw err;
+            }
+        })();
+
+        this.localFolderLocks.set(folderPath, createPromise);
+        try {
+            await createPromise;
+        } finally {
+            this.localFolderLocks.delete(folderPath);
+        }
+    }
+
     // 파일 확장자 필터링 (기본 지원 포맷 + 사용자 지정 포맷)
     public isAllowedExtension(filename: string): boolean {
         const defaultExtensions = ['md', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'mp3', 'webm', 'wav', 'm4a', 'ogg', '3gp', 'flac', 'mp4', 'ogv', 'mov', 'mkv', 'pdf', 'canvas'];
@@ -613,9 +659,7 @@ export class SyncManager {
                         let pPath = '';
                         for (const p of folders) {
                             pPath += (pPath ? '/' : '') + p;
-                            if (!this.plugin.app.vault.getAbstractFileByPath(pPath)) {
-                                await this.plugin.app.vault.createFolder(pPath);
-                            }
+                            await this.ensureLocalFolder(pPath);
                         }
 
                         await this.plugin.app.vault.rename(existingFile, currentRemotePath);
@@ -642,14 +686,12 @@ export class SyncManager {
                 if (this.isIgnoredPath(localPath)) continue;
 
                 if (isFolder) {
-            this.state.setFolderId(localPath, file.id);
-            if (!this.plugin.app.vault.getAbstractFileByPath(localPath)) {
-                await this.plugin.app.vault.createFolder(localPath);
-            }
-            continue;
-        }
+                    this.state.setFolderId(localPath, file.id);
+                    await this.ensureLocalFolder(localPath);
+                    continue;
+                }
 
-        if (!file.name || !this.isAllowedExtension(file.name)) continue;
+                if (!file.name || !this.isAllowedExtension(file.name)) continue;
 
                 const localFile = this.plugin.app.vault.getAbstractFileByPath(localPath);
                 const localMtime = (localFile instanceof TFile) ? localFile.stat.mtime : 0;
@@ -832,11 +874,8 @@ export class SyncManager {
                 this.plugin.updateSyncStatus(t('STATUS_SYNCING_FOLDERS', { current: folderIdx, total: totalRemoteFolders }));
                 this.state.setFolderId(remotePath, remoteFolder.id);
                 this.folderIdCache.set(remotePath, remoteFolder.id);
-                const existingLocal = this.plugin.app.vault.getAbstractFileByPath(remotePath);
-                if (!existingLocal) {
-                    console.debug(`[GD Sync] Creating empty folder from remote: ${remotePath}`);
-                    await this.plugin.app.vault.createFolder(remotePath);
-                }
+                console.debug(`[GD Sync] Ensuring folder from remote: ${remotePath}`);
+                await this.ensureLocalFolder(remotePath);
             }
 
             // 2.1b 로컬 폴더 동기화 (로컬의 빈 폴더도 원격에 반영되도록 보장)
@@ -1088,36 +1127,7 @@ export class SyncManager {
 
         const folders = localPath.split('/');
         folders.pop();
-        let currentLocalPath = '';
-        for (const p of folders) {
-            currentLocalPath += (currentLocalPath ? '/' : '') + p;
-            if (!this.plugin.app.vault.getAbstractFileByPath(currentLocalPath)) {
-                if (this.localFolderLocks.has(currentLocalPath)) {
-                    await this.localFolderLocks.get(currentLocalPath);
-                    continue;
-                }
-
-                const createPromise = (async () => {
-                    try {
-                        if (!this.plugin.app.vault.getAbstractFileByPath(currentLocalPath)) {
-                            await this.plugin.app.vault.createFolder(currentLocalPath);
-                        }
-                    } catch (err: unknown) {
-                        const e = err as { message?: string };
-                        if (e.message && !e.message.includes('already exists')) {
-                            throw err;
-                        }
-                    }
-                })();
-
-                this.localFolderLocks.set(currentLocalPath, createPromise);
-                try {
-                    await createPromise;
-                } finally {
-                    this.localFolderLocks.delete(currentLocalPath);
-                }
-            }
-        }
+        await this.ensureLocalFolder(folders.join('/'));
 
         const existingLocal = this.plugin.app.vault.getAbstractFileByPath(localPath);
         if (existingLocal && existingLocal instanceof TFile) {
