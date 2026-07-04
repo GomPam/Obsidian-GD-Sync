@@ -197,6 +197,17 @@ export class SyncState {
         await this.save();
     }
 
+    async clearSyncIndex() {
+        const { targetFolderId, trashFolderId } = this.index;
+        this.index = {
+            files: {},
+            folders: {},
+            targetFolderId,
+            trashFolderId
+        };
+        await this.save();
+    }
+
     getSyncHistory(): SyncLog[] {
         return this.index.syncHistory || [];
     }
