@@ -194,7 +194,8 @@ export default class GDSyncPlugin extends Plugin {
                 new Notice(t('OAUTH_SUCCESS'));
 
                 // 연동 직후 타겟 폴더가 지정되어 있지 않다면 폴더 픽커 모달 팝업
-                if (!this.syncManager.state.getTargetFolderId()) {
+                const targetFolderId = this.syncManager.state.getTargetFolderId();
+                if (!targetFolderId) {
                     setTimeout(() => {
                         new FolderPickerModal(this.app, this, async (folder, fullPath) => {
                             this.settings.syncFolderName = folder.name;
@@ -212,6 +213,11 @@ export default class GDSyncPlugin extends Plugin {
                             }, 500);
                         }).open();
                     }, 300);
+                } else {
+                    // 재연결 성공 후에는 인증 공백 동안 생긴 원격 파일과 기존 파일 상태를 전체 재조정한다.
+                    setTimeout(() => {
+                        void this.syncManager.syncWholeVault();
+                    }, 500);
                 }
 
             } catch (err: unknown) {

@@ -887,7 +887,31 @@ export class SyncManager {
                 }
             }
 
-            // 2.2 파일 동기화 계획 실행
+            // 2.2 원격에만 있는 새 파일을 먼저 다운로드
+            const knownDriveIds = new Set(Object.values(this.state.getAllFiles()).map(data => data.driveId));
+            const remoteOnlyPaths = Array.from(remoteFilesByPath.keys()).filter(remotePath => {
+                const remoteFile = remoteFilesByPath.get(remotePath);
+                if (!remoteFile) return false;
+                if (this.plugin.app.vault.getAbstractFileByPath(remotePath)) return false;
+
+                return !knownDriveIds.has(remoteFile.id);
+            });
+
+            let remoteOnlyIdx = 0;
+            for (const remotePath of remoteOnlyPaths) {
+                remoteOnlyIdx++;
+                const remoteFile = remoteFilesByPath.get(remotePath);
+                if (!remoteFile) continue;
+
+                this.plugin.updateSyncStatus(t("STATUS_REMOTE_NEW", { current: remoteOnlyIdx, total: remoteOnlyPaths.length }));
+
+                await this.downloadFile(remotePath, remoteFile);
+                processedPaths.add(remotePath);
+                processedDriveIds.add(remoteFile.id);
+                downloadCount++;
+            }
+
+            // 2.3 기존 로컬 파일 동기화 계획 실행
             let currentIdx = 0;
             const totalLocal = localFiles.length;
 
@@ -971,24 +995,6 @@ export class SyncManager {
                 if ((uploadCount + downloadCount) % 20 === 0 && (uploadCount + downloadCount) > 0) {
                     await this.state.save();
                 }
-            }
-
-            // 2.3 원격에만 있는 파일 다운로드
-            const remoteOnlyPaths = Array.from(remoteFilesByPath.keys()).filter(p => {
-                const f = remoteFilesByPath.get(p);
-                return f && !processedPaths.has(p) && !processedDriveIds.has(f.id);
-            });
-
-            let remoteOnlyIdx = 0;
-            for (const remotePath of remoteOnlyPaths) {
-                remoteOnlyIdx++;
-                const remoteFile = remoteFilesByPath.get(remotePath);
-                if (!remoteFile) continue;
-
-                this.plugin.updateSyncStatus(t("STATUS_REMOTE_NEW", { current: remoteOnlyIdx, total: remoteOnlyPaths.length }));
-
-                await this.downloadFile(remotePath, remoteFile);
-                downloadCount++;
             }
 
             await this.state.save();
