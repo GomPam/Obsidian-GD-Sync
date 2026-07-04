@@ -137,7 +137,7 @@ export class GDSyncSettingTab extends PluginSettingTab {
                     .setButtonText(t('SETTING_BTN_RESET_INDEX'))
                     .setWarning()
                     .onClick(async () => {
-                        await this.plugin.syncManager.state.clearAll();
+                        await this.plugin.syncManager.state.clearSyncIndex();
                         await this.plugin.syncManager.initialize();
                         new Notice(t('NOTICE_CACHE_RESET'));
                         void this.plugin.syncManager.syncWholeVault();
