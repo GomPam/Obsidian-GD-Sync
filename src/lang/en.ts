@@ -36,6 +36,7 @@ export default {
     STATUS_READY: "Ready",
     STATUS_SETUP_FAILED: "Setup failed",
     STATUS_DELTA_SYNC: "Delta Sync...",
+    STATUS_DELTA_SYNC_PROGRESS: "Delta Sync... {count} remote changes found",
     STATUS_SCANNING: "Scanning...",
     STATUS_LISTING: "Listing remote files...",
     STATUS_CHECKING: "Checking {current}/{total}...",

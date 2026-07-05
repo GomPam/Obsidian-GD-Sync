@@ -408,12 +408,18 @@ export class GoogleDriveClient {
     }
 
     // 변경 사항 목록 가져오기
-    async listChanges(pageToken: string): Promise<{ changes: GoogleDriveChange[], newStartPageToken: string }> {
+    async listChanges(pageToken: string, onProgress?: (count: number) => void): Promise<{ changes: GoogleDriveChange[], newStartPageToken: string }> {
         let allChanges: GoogleDriveChange[] = [];
         let currentToken = pageToken;
         const headers = await this.getHeaders();
+        const seenPageTokens = new Set<string>();
 
         while (true) {
+            if (seenPageTokens.has(currentToken)) {
+                throw new Error(`Drive changes pagination loop detected at token ${currentToken}`);
+            }
+            seenPageTokens.add(currentToken);
+
             const url = `https://www.googleapis.com/drive/v3/changes?pageToken=${currentToken}&fields=nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,modifiedTime,parents,trashed))&spaces=drive&pageSize=1000`;
             const res = await requestUrl({ url, method: 'GET', headers });
 
@@ -421,6 +427,7 @@ export class GoogleDriveClient {
 
             const json = res.json as { changes?: GoogleDriveChange[], nextPageToken?: string, newStartPageToken: string };
             allChanges = allChanges.concat(json.changes || []);
+            onProgress?.(allChanges.length);
             
             if (json.nextPageToken) {
                 currentToken = json.nextPageToken;

@@ -588,7 +588,9 @@ export class SyncManager {
 
             await this.processLocalQueue();
 
-            const { changes, newStartPageToken } = await this.driveClient.listChanges(token);
+            const { changes, newStartPageToken } = await this.driveClient.listChanges(token, count => {
+                this.plugin.updateSyncStatus(t("STATUS_DELTA_SYNC_PROGRESS", { count: count.toString() }));
+            });
 
             let uploadCount = 0;
             let downloadCount = 0;

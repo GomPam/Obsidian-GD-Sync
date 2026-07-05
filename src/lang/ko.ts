@@ -38,6 +38,7 @@ const ko: typeof en = {
     STATUS_READY: "대기 중",
     STATUS_SETUP_FAILED: "셋업 실패",
     STATUS_DELTA_SYNC: "부분 동기화 중...",
+    STATUS_DELTA_SYNC_PROGRESS: "부분 동기화 중... 원격 변경 {count}개 확인",
     STATUS_SCANNING: "스캔 중...",
     STATUS_LISTING: "원격 파일 목록 수집 중...",
     STATUS_CHECKING: "확인 중 {current}/{total}...",
