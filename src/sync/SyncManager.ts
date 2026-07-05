@@ -606,26 +606,93 @@ export class SyncManager {
             console.debug(`[GD Sync] Detected ${changes.length} remote changes.`);
 
             const targetFolderId = await this.getTargetFolderIdResolved();
+            const allFiles = this.state.getAllFiles();
+            const allFolders = this.state.getAllFolders();
+            const filePathByDriveId = new Map<string, string>();
+            const folderPathByDriveId = new Map<string, string>();
+            const folderPathResolutionCache = new Map<string, string | null>();
+            const resolvingFolderIds = new Set<string>();
+
+            for (const [path, data] of Object.entries(allFiles)) {
+                filePathByDriveId.set(data.driveId, path);
+            }
+            for (const [path, id] of Object.entries(allFolders)) {
+                folderPathByDriveId.set(id, path);
+                folderPathResolutionCache.set(id, path);
+            }
+            folderPathResolutionCache.set(targetFolderId, '');
+
+            const resolveFolderPathById = async (folderId: string): Promise<string | null> => {
+                if (folderPathResolutionCache.has(folderId)) {
+                    return folderPathResolutionCache.get(folderId) ?? null;
+                }
+                if (resolvingFolderIds.has(folderId)) {
+                    return null;
+                }
+
+                resolvingFolderIds.add(folderId);
+                try {
+                    const folder = await this.driveClient.getFile(folderId);
+                    if (!folder || folder.trashed || folder.mimeType !== 'application/vnd.google-apps.folder') {
+                        folderPathResolutionCache.set(folderId, null);
+                        return null;
+                    }
+
+                    for (const parentId of folder.parents || []) {
+                        const parentPath = await resolveFolderPathById(parentId);
+                        if (parentPath !== null) {
+                            const folderPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
+                            folderPathByDriveId.set(folderId, folderPath);
+                            folderPathResolutionCache.set(folderId, folderPath);
+                            this.state.setFolderId(folderPath, folderId);
+                            this.folderIdCache.set(folderPath, folderId);
+                            return folderPath;
+                        }
+                    }
+
+                    folderPathResolutionCache.set(folderId, null);
+                    return null;
+                } finally {
+                    resolvingFolderIds.delete(folderId);
+                }
+            };
+
+            const resolveChangeLocalPath = async (file: GoogleDriveFile, isFolder: boolean): Promise<string | null> => {
+                for (const parentId of file.parents || []) {
+                    const parentPath = await resolveFolderPathById(parentId);
+                    if (parentPath !== null) {
+                        const localPath = parentPath ? `${parentPath}/${file.name}` : file.name;
+                        if (isFolder) {
+                            folderPathByDriveId.set(file.id, localPath);
+                            folderPathResolutionCache.set(file.id, localPath);
+                            this.state.setFolderId(localPath, file.id);
+                            this.folderIdCache.set(localPath, file.id);
+                        }
+                        return localPath;
+                    }
+                }
+
+                return null;
+            };
 
             for (const change of changes) {
                 const file = change.file;
                 if (change.removed || (file && file.trashed)) {
                     // 1. 파일 삭제 확인
-                    const allFiles = this.state.getAllFiles();
-                    const filePath = Object.keys(allFiles).find(k => allFiles[k]?.driveId === change.fileId);
+                    const filePath = filePathByDriveId.get(change.fileId);
                     if (filePath) {
                         const localFile = this.plugin.app.vault.getAbstractFileByPath(filePath);
                         if (localFile) {
                             await this.plugin.app.vault.adapter.remove(filePath);
                             this.state.removeFileData(filePath);
+                            filePathByDriveId.delete(change.fileId);
                             downloadCount++;
                         }
                         continue;
                     }
 
                     // 2. 폴더 삭제 확인 (Cascade)
-                    const allFolders = this.state.getAllFolders();
-                    const folderPath = Object.keys(allFolders).find(k => allFolders[k] === change.fileId);
+                    const folderPath = folderPathByDriveId.get(change.fileId);
                     if (folderPath) {
                         const localFolder = this.plugin.app.vault.getAbstractFileByPath(folderPath);
                         if (localFolder) {
@@ -634,16 +701,27 @@ export class SyncManager {
 
                             this.state.removeFolderData(folderPath);
                             this.folderIdCache.delete(folderPath);
+                            folderPathByDriveId.delete(change.fileId);
+                            folderPathResolutionCache.delete(change.fileId);
 
                             // 하위 상태 일괄 제거
                             const prefix = folderPath + '/';
                             for (const key of Object.keys(this.state.getAllFiles())) {
-                                if (key.startsWith(prefix)) this.state.removeFileData(key);
+                                if (key.startsWith(prefix)) {
+                                    const driveId = this.state.getFileData(key)?.driveId;
+                                    this.state.removeFileData(key);
+                                    if (driveId) filePathByDriveId.delete(driveId);
+                                }
                             }
                             for (const key of Object.keys(this.state.getAllFolders())) {
                                 if (key.startsWith(prefix)) {
+                                    const driveId = this.state.getFolderId(key);
                                     this.state.removeFolderData(key);
                                     this.folderIdCache.delete(key);
+                                    if (driveId) {
+                                        folderPathByDriveId.delete(driveId);
+                                        folderPathResolutionCache.delete(driveId);
+                                    }
                                 }
                             }
                             downloadCount++;
@@ -654,21 +732,18 @@ export class SyncManager {
 
                 if (!file) continue;
 
-                const allFiles = this.state.getAllFiles();
-                const allFolders = this.state.getAllFolders();
-
                 // 1. ID 기반으로 기존 로컬 경로 탐색 (이름 변경/이동 추적용)
                 let localPath: string | null | undefined = null;
                 const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
 
                 if (isFolder) {
-                    localPath = Object.keys(allFolders).find(k => allFolders[k] === file.id);
+                    localPath = folderPathByDriveId.get(file.id);
                 } else {
-                    localPath = Object.keys(allFiles).find(k => allFiles[k]?.driveId === file.id);
+                    localPath = filePathByDriveId.get(file.id);
                 }
 
-                // 2. 현재 원격의 실제 경로 계산
-                const currentRemotePath = await this.resolveRemotePath(file, targetFolderId);
+                // 2. 현재 원격의 실제 경로 계산. 대부분의 외부 변경은 parent 캐시에서 빠르게 제외된다.
+                const currentRemotePath = await resolveChangeLocalPath(file, isFolder);
                 if (!currentRemotePath) continue;
 
                 // 3. 경로가 바뀌었다면 로컬 이름변경/이동 수행
@@ -689,17 +764,38 @@ export class SyncManager {
 
                         if (isFolder) {
                             this.state.renameFolderData(localPath, currentRemotePath);
+                            folderPathByDriveId.set(file.id, currentRemotePath);
+                            folderPathResolutionCache.set(file.id, currentRemotePath);
+                            this.folderIdCache.set(currentRemotePath, file.id);
+                            this.folderIdCache.delete(localPath);
+
                             // 하위 항목 경로 갱신
                             const oldPrefix = localPath + '/';
                             const newPrefix = currentRemotePath + '/';
                             for (const k of Object.keys(this.state.getAllFiles())) {
-                                if (k.startsWith(oldPrefix)) this.state.renameFileData(k, newPrefix + k.substring(oldPrefix.length));
+                                if (k.startsWith(oldPrefix)) {
+                                    const driveId = this.state.getFileData(k)?.driveId;
+                                    const newKey = newPrefix + k.substring(oldPrefix.length);
+                                    this.state.renameFileData(k, newKey);
+                                    if (driveId) filePathByDriveId.set(driveId, newKey);
+                                }
                             }
                             for (const k of Object.keys(this.state.getAllFolders())) {
-                                if (k.startsWith(oldPrefix)) this.state.renameFolderData(k, newPrefix + k.substring(oldPrefix.length));
+                                if (k.startsWith(oldPrefix)) {
+                                    const driveId = this.state.getFolderId(k);
+                                    const newKey = newPrefix + k.substring(oldPrefix.length);
+                                    this.state.renameFolderData(k, newKey);
+                                    if (driveId) {
+                                        folderPathByDriveId.set(driveId, newKey);
+                                        folderPathResolutionCache.set(driveId, newKey);
+                                        this.folderIdCache.set(newKey, driveId);
+                                        this.folderIdCache.delete(k);
+                                    }
+                                }
                             }
                         } else {
                             this.state.renameFileData(localPath, currentRemotePath);
+                            filePathByDriveId.set(file.id, currentRemotePath);
                         }
                     }
                     localPath = currentRemotePath;
@@ -710,6 +806,9 @@ export class SyncManager {
 
                 if (isFolder) {
                     this.state.setFolderId(localPath, file.id);
+                    folderPathByDriveId.set(file.id, localPath);
+                    folderPathResolutionCache.set(file.id, localPath);
+                    this.folderIdCache.set(localPath, file.id);
                     await this.ensureLocalFolder(localPath);
                     continue;
                 }
@@ -742,6 +841,7 @@ export class SyncManager {
                             continue;
                         }
                         await this.downloadFile(localPath, file);
+                        filePathByDriveId.set(file.id, localPath);
                         downloadCount++;
                     }
                 }
