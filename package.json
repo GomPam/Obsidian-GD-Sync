@@ -1,6 +1,6 @@
 {
     "name": "gd-sync",
-    "version": "0.0.13",
+    "version": "0.0.14",
     "description": "Obsidian plugin to sync your vault with Google Drive across desktop and mobile securely using PKCE.",
     "main": "main.js",
     "type": "module",
